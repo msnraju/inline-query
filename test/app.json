@@ -1,0 +1,39 @@
+{
+  "id": "4358819b-af1d-4bbd-8917-3f795a501f67",
+  "name": "Inline Query Tests",
+  "publisher": "MSN Raju",
+  "version": "1.0.0.0",
+  "brief": "",
+  "description": "",
+  "privacyStatement": "",
+  "EULA": "",
+  "help": "",
+  "url": "",
+  "logo": "",
+  "dependencies": [
+    {
+      "id": "dd0be2ea-f733-4d65-bb34-a28f4624fb14",
+      "publisher": "Microsoft",
+      "name": "Library Assert",
+      "version": "18.0.0.0"
+    },
+    {
+      "id": "5f3ef28e-41be-45d9-8304-9e9d3274673b",
+      "name": "Inline Query",
+      "publisher": "MSN Raju",
+      "version": "1.0.0.0"
+    }
+  ],
+  "screenshots": [],
+  "platform": "17.0.0.0",
+  "application": "18.0.0.0",
+  "idRanges": [
+    {
+      "from": 50100,
+      "to": 50149
+    }
+  ],
+  "contextSensitiveHelpUrl": "https://inline-query-test.com/help/",
+  "showMyCode": true,
+  "runtime": "6.0"
+}

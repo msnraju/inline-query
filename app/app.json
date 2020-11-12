@@ -1,0 +1,26 @@
+{
+  "id": "5f3ef28e-41be-45d9-8304-9e9d3274673b",
+  "name": "Inline Query",
+  "publisher": "MSN Raju",
+  "version": "1.0.0.0",
+  "brief": "",
+  "description": "Inline Query is a library which enables to execute SQL like queries in AL Language.",
+  "privacyStatement": "",
+  "EULA": "",
+  "help": "",
+  "url": "",
+  "logo": "",
+  "dependencies": [],
+  "screenshots": [],
+  "platform": "17.0.0.0",
+  "application": "18.0.0.0",
+  "idRanges": [
+    {
+      "from": 50100,
+      "to": 50149
+    }
+  ],
+  "contextSensitiveHelpUrl": "https://inline-query.com/help/",
+  "showMyCode": true,
+  "runtime": "6.0"
+}
