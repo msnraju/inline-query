@@ -1,4 +1,4 @@
-# Inline Query
+# Inline Query | SQL like Queries in Business Central
 
 Inline Query is a library that can execute SQL like Queries in Business Central AL Language. This is a small compiler in AL that compiles and executes SQL like queries in text constants or text variables. 
 
