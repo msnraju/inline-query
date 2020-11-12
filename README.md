@@ -25,5 +25,5 @@ begin
 end;
 ```
 
-See [msnJournals.com](https://www.msnjournals.com/post/how-to-connect-sharepoint-with-business-central) for more information.
+See [msnJournals.com](https://www.msnjournals.com/post/inline-query-sql-like-queries-in-business-central) for more information.
 
