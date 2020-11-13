@@ -9,10 +9,14 @@ codeunit 50100 "Inline Query Tokenizer"
     procedure Tokenize(QueryText: Text): JsonArray;
     var
         Pos: Integer;
+        Len: Integer;
         JTokens: JsonArray;
     begin
+        QueryText := DelChr(QueryText, '<>', ' ');
+        Len := StrLen(QueryText);
         Pos := 1;
-        while Pos <= StrLen(QueryText) do
+
+        while Pos <= Len do
             JTokens.Add(ReadToken(QueryText, Pos));
 
         exit(JTokens);

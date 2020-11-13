@@ -6,6 +6,7 @@ codeunit 50101 "Inline Query Impl"
         InlineQueryTokenizer: Codeunit "Inline Query Tokenizer";
         InlineQueryParser: Codeunit "Inline Query Parser";
         InlineQueryCompiler: Codeunit "Inline Query Compiler";
+        EmptyQueryErr: Label 'Query should not be empty.';
         FunctionExpectedErr: Label 'Function expected.';
         SingleFunctionExpectedErr: Label 'A single function expected.';
 
@@ -97,6 +98,10 @@ codeunit 50101 "Inline Query Impl"
         JASTNode: JsonObject;
         NewJASTNode: JsonObject;
     begin
+        QueryText := DelChr(QueryText, '<>', ' ');
+        if StrLen(QueryText) = 0 then
+            Error(EmptyQueryErr);
+
         JTokens := InlineQueryTokenizer.Tokenize(QueryText);
         JASTNode := InlineQueryParser.Parse(JTokens);
         NewJASTNode := InlineQueryCompiler.Compile(JASTNode);

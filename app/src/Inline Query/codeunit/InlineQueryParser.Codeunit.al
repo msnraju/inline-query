@@ -4,6 +4,7 @@ codeunit 50102 "Inline Query Parser"
 
     var
         SyntaxErrorErr: Label 'Syntax error, %1 expected.', Comment = '%1 = Token';
+        InvalidTokenErrorErr: Label 'Syntax error, Invalid token ''%1''.', Comment = '%1 = Token';
         InvalidOperatorErr: Label 'Syntax error, Invalid operator ''%1''.', Comment = '%1 = Operator';
 
     procedure Parse(JTokens: JsonArray): JsonObject
@@ -25,11 +26,25 @@ codeunit 50102 "Inline Query Parser"
         JTable := ParseTable(JTokens, Pos);
         JFilters := ParseFilters(JTokens, Pos);
 
+        EndOfQuery(JTokens, Pos);
+
         JASTNode.Add('Fields', JFields);
         JASTNode.Add('Table', JTable);
         JASTNode.Add('Filters', JFilters);
 
         exit(JASTNode);
+    end;
+
+    local procedure EndOfQuery(JTokens: JsonArray; Pos: Integer)
+    var
+        TokenValue: Text;
+        TokenType: Enum "Inline Query Token Type";
+    begin
+        if Pos = JTokens.Count() then
+            exit;
+
+        PeekToken(JTokens, Pos, TokenValue, TokenType);
+        Error(InvalidTokenErrorErr, TokenValue);
     end;
 
     local procedure ParseQueryType(JTokens: JsonArray; var Pos: Integer)
@@ -60,9 +75,8 @@ codeunit 50102 "Inline Query Parser"
             Error(SyntaxErrorErr, 'WHERE');
 
         Pos += 1;
-        TokenValue := '';
 
-        while (TokenValue = '') or (UpperCase(TokenValue) = 'AND') or (UpperCase(TokenValue) = 'OR') do begin
+        while (TokenValue = 'WHERE') or (UpperCase(TokenValue) = 'AND') do begin
             if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
                 Error(SyntaxErrorErr, 'Field');
 
@@ -92,8 +106,11 @@ codeunit 50102 "Inline Query Parser"
 
             JFilters.Add(GetFilterNode(FieldName, Operator, FilterValue));
 
-            if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
+            if not PeekToken(JTokens, Pos, TokenValue, TokenType) then
                 Break;
+
+            if UpperCase(TokenValue) = 'AND' then
+                Pos += 1;
         end;
 
         exit(JFilters);
