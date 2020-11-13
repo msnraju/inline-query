@@ -14,6 +14,13 @@ page 50100 "Inline Query Test"
                 ToolTip = 'Specify the Query Text';
                 Caption = 'Inline Query';
             }
+            field("Result"; Result)
+            {
+                Editable = false;
+                ApplicationArea = All;
+                ToolTip = 'The Query Result';
+                Caption = 'Result';
+            }
         }
     }
 
@@ -33,8 +40,12 @@ page 50100 "Inline Query Test"
                 PromotedIsBig = true;
 
                 trigger OnAction()
+                var
+                    ResultVariant: Variant;
                 begin
-                    InlineQuery.AsInteger(QueryText);
+                    Result := '';
+                    InlineQuery.AsVariant(QueryText, ResultVariant);
+                    Result := Format(ResultVariant);
                 end;
             }
         }
@@ -43,4 +54,5 @@ page 50100 "Inline Query Test"
     var
         InlineQuery: Codeunit "Inline Query";
         QueryText: Text;
+        Result: Text;
 }

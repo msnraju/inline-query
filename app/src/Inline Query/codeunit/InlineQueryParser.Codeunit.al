@@ -76,7 +76,7 @@ codeunit 50102 "Inline Query Parser"
 
         Pos += 1;
 
-        while (TokenValue = 'WHERE') or (UpperCase(TokenValue) = 'AND') do begin
+        while (UpperCase(TokenValue) = 'WHERE') or (UpperCase(TokenValue) = 'AND') do begin
             if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
                 Error(SyntaxErrorErr, 'Field');
 

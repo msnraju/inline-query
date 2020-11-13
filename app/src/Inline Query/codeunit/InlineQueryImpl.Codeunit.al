@@ -14,7 +14,7 @@ codeunit 50101 "Inline Query Impl"
     var
         ValueVariant: Variant;
     begin
-        QueryToValue(QueryText, ValueVariant);
+        AsVariant(QueryText, ValueVariant);
         exit(ValueVariant);
     end;
 
@@ -22,7 +22,7 @@ codeunit 50101 "Inline Query Impl"
     var
         ValueVariant: Variant;
     begin
-        QueryToValue(QueryText, ValueVariant);
+        AsVariant(QueryText, ValueVariant);
         exit(ValueVariant);
     end;
 
@@ -30,7 +30,7 @@ codeunit 50101 "Inline Query Impl"
     var
         ValueVariant: Variant;
     begin
-        QueryToValue(QueryText, ValueVariant);
+        AsVariant(QueryText, ValueVariant);
         exit(ValueVariant);
     end;
 
@@ -38,7 +38,7 @@ codeunit 50101 "Inline Query Impl"
     var
         ValueVariant: Variant;
     begin
-        QueryToValue(QueryText, ValueVariant);
+        AsVariant(QueryText, ValueVariant);
         exit(ValueVariant);
     end;
 
@@ -46,7 +46,7 @@ codeunit 50101 "Inline Query Impl"
     var
         ValueVariant: Variant;
     begin
-        QueryToValue(QueryText, ValueVariant);
+        AsVariant(QueryText, ValueVariant);
         exit(ValueVariant);
     end;
 
@@ -54,7 +54,7 @@ codeunit 50101 "Inline Query Impl"
     var
         ValueVariant: Variant;
     begin
-        QueryToValue(QueryText, ValueVariant);
+        AsVariant(QueryText, ValueVariant);
         exit(ValueVariant);
     end;
 
@@ -62,7 +62,7 @@ codeunit 50101 "Inline Query Impl"
     var
         ValueVariant: Variant;
     begin
-        QueryToValue(QueryText, ValueVariant);
+        AsVariant(QueryText, ValueVariant);
         exit(ValueVariant);
     end;
 
@@ -70,7 +70,7 @@ codeunit 50101 "Inline Query Impl"
     var
         ValueVariant: Variant;
     begin
-        QueryToValue(QueryText, ValueVariant);
+        AsVariant(QueryText, ValueVariant);
         exit(ValueVariant);
     end;
 
@@ -78,11 +78,11 @@ codeunit 50101 "Inline Query Impl"
     var
         ValueVariant: Variant;
     begin
-        QueryToValue(QueryText, ValueVariant);
+        AsVariant(QueryText, ValueVariant);
         exit(ValueVariant);
     end;
 
-    local procedure QueryToValue(QueryText: Text; var ValueVariant: Variant)
+    procedure AsVariant(QueryText: Text; var ValueVariant: Variant)
     var
         RecordRef: RecordRef;
         JASTNode: JsonObject;

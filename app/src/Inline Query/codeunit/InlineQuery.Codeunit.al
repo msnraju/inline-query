@@ -98,4 +98,14 @@ codeunit 50104 "Inline Query"
     begin
         exit(InlineQueryImpl.AsText(QueryText));
     end;
+
+    /// <summary>
+    /// Executes the Query and updates ResultVariant with the calculated value.
+    /// </summary>
+    /// <param name="QueryText">The inline query text</param>
+    /// <param name="ResultVariant">The Query result will be passed to this variable</param>
+    procedure AsVariant(QueryText: Text; var ResultVariant: Variant)
+    begin
+        InlineQueryImpl.AsVariant(QueryText, ResultVariant);
+    end;
 }
