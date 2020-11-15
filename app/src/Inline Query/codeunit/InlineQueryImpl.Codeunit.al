@@ -9,6 +9,7 @@ codeunit 50101 "Inline Query Impl"
         EmptyQueryErr: Label 'Query should not be empty.';
         FunctionExpectedErr: Label 'Function expected.';
         SingleFunctionExpectedErr: Label 'A single function expected.';
+        SortingLbl: Label 'SORTING(%1)', Locked = true, Comment = '%1 = Field';
 
     procedure AsInteger(QueryText: Text): Integer
     var
@@ -92,6 +93,14 @@ codeunit 50101 "Inline Query Impl"
         GetFunctionValue(RecordRef, JASTNode, ValueVariant);
     end;
 
+    procedure AsRecord(QueryText: Text; var RecordRef: RecordRef)
+    var
+        JASTNode: JsonObject;
+    begin
+        JASTNode := QueryAsASTNode(QueryText);
+        PrepareRecRef(RecordRef, JASTNode);
+    end;
+
     local procedure QueryAsASTNode(QueryText: Text): JsonObject
     var
         JTokens: JsonArray;
@@ -120,7 +129,6 @@ codeunit 50101 "Inline Query Impl"
         RecCount: Integer;
         NumberValue: Decimal;
         FunctionType: Enum "Inline Query Function Type";
-        SortingLbl: Label 'SORTING(%1)', Comment = '%1 = Field';
     begin
         JASTNode.Get('Fields', JToken);
         JFields := JToken.AsArray();
@@ -149,13 +157,13 @@ codeunit 50101 "Inline Query Impl"
                 ValueVariant := RecordRef.Count();
             FunctionType::Min:
                 begin
-                    RecordRef.SetView(StrSubstNo(SortingLbl, FieldRef.Name));
+                    SetOrderBy(JASTNode, RecordRef, FieldRef.Name);
                     if RecordRef.FindFirst() then
                         ValueVariant := FieldRef.Value;
                 end;
             FunctionType::Max:
                 begin
-                    RecordRef.SetView(StrSubstNo(SortingLbl, FieldRef.Name));
+                    SetOrderBy(JASTNode, RecordRef, FieldRef.Name);
                     if RecordRef.FindLast() then
                         ValueVariant := FieldRef.Value;
                 end;
@@ -196,6 +204,12 @@ codeunit 50101 "Inline Query Impl"
         JASTNode.Get('Table', JToken);
         OpenTable(RecordRef, JToken.AsObject());
 
+        JASTNode.Get('Fields', JToken);
+        AddLoadFields(RecordRef, JToken.AsArray());
+
+        if JASTNode.Get('OrderBy', JToken) then
+            ApplyOrderBy(RecordRef, JToken.AsArray());
+
         JASTNode.Get('Filters', JToken);
         ApplyFilters(RecordRef, JToken.AsArray());
     end;
@@ -218,15 +232,43 @@ codeunit 50101 "Inline Query Impl"
             RecordRef.Open(TableID)
     end;
 
+    local procedure AddLoadFields(var RecordRef: RecordRef; JFields: JsonArray)
+    var
+        JToken: JsonToken;
+    begin
+        foreach JToken in JFields do
+            AddLoadField(RecordRef, JToken.AsObject());
+    end;
+
+    local procedure AddLoadField(var RecordRef: RecordRef; JField: JsonObject)
+    var
+        JToken: JsonToken;
+        FieldID: Integer;
+        IsFunction: Boolean;
+        FunctionType: Enum "Inline Query Function Type";
+    begin
+        JField.Get('IsFunction', JToken);
+        IsFunction := JToken.AsValue().AsBoolean();
+
+        if IsFunction then begin
+            JField.Get('Function', JToken);
+            FunctionType := "Inline Query Function Type".FromInteger(JToken.AsValue().AsInteger());
+            if FunctionType = FunctionType::Count then
+                exit;
+        end;
+
+        JField.Get('Field', JToken);
+        FieldID := JToken.AsValue().AsInteger();
+        RecordRef.AddLoadFields(FieldID);
+    end;
+
+
     local procedure ApplyFilters(var RecordRef: RecordRef; JFilters: JsonArray)
     var
         JToken: JsonToken;
     begin
-        RecordRef.FilterGroup := 2;
         foreach JToken in JFilters do
             ApplyFilter(RecordRef, JToken.AsObject());
-
-        RecordRef.FilterGroup := 0;
     end;
 
     local procedure ApplyFilter(var RecordRef: RecordRef; JFilter: JsonObject)
@@ -262,5 +304,42 @@ codeunit 50101 "Inline Query Impl"
             OperatorType::"Greater Than or Equal To":
                 FieldRef.SetFilter('>=' + FilterValue);
         end;
+    end;
+
+    local procedure ApplyOrderBy(var RecordRef: RecordRef; JFields: JsonArray)
+    var
+        FieldRef: FieldRef;
+        JToken: JsonToken;
+        FieldID: Integer;
+        TableKey: Text;
+    begin
+        if JFields.Count() = 0 then
+            exit;
+
+        foreach JToken in JFields do begin
+            FieldID := JToken.AsValue().AsInteger();
+            FieldRef := RecordRef.Field(FieldID);
+            if TableKey = '' then
+                TableKey := FieldRef.Name
+            else
+                TableKey += ',' + FieldRef.Name;
+        end;
+
+        RecordRef.SetView(StrSubstNo(SortingLbl, TableKey));
+    end;
+
+    local procedure SetOrderBy(JASTNode: JsonObject; var RecordRef: RecordRef; FieldName: Text)
+    var
+        JToken: JsonToken;
+    begin
+        if not JASTNode.Get('OrderBy', JToken) then
+            exit;
+
+        if JToken.AsArray().Count() > 0 then
+            exit;
+
+        RecordRef.FilterGroup := 2;
+        RecordRef.SetView(StrSubstNo(SortingLbl, FieldName));
+        RecordRef.FilterGroup := 0;
     end;
 }

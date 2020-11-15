@@ -108,4 +108,14 @@ codeunit 50104 "Inline Query"
     begin
         InlineQueryImpl.AsVariant(QueryText, ResultVariant);
     end;
+
+    /// <summary>
+    /// Apply Filters and Sorting to RecordRef from the Query.
+    /// </summary>
+    /// <param name="QueryText">The inline query text</param>
+    /// <param name="RecordRef">The RecordRef variable to be updated with Sorting and Filters</param>
+    procedure AsRecord(QueryText: Text; var RecordRef: RecordRef)
+    begin
+        InlineQueryImpl.AsRecord(QueryText, RecordRef);
+    end;
 }
