@@ -17,6 +17,7 @@ page 50100 "Inline Query Test"
             field("Result"; Result)
             {
                 Editable = false;
+                MultiLine = true;
                 ApplicationArea = All;
                 ToolTip = 'The Query Result';
                 Caption = 'Result';
@@ -41,10 +42,16 @@ page 50100 "Inline Query Test"
 
                 trigger OnAction()
                 var
+                    RecordRef: RecordRef;
                     ResultVariant: Variant;
                 begin
                     Result := '';
-                    InlineQuery.AsVariant(QueryText, ResultVariant);
+                    InlineQuery.AsRecord(QueryText, ResultVariant);
+                    if ResultVariant.IsRecordRef then begin
+                        RecordRef := ResultVariant;
+                        Message('%1', RecordRef.GetView());
+                    end;
+
                     Result := Format(ResultVariant);
                 end;
             }

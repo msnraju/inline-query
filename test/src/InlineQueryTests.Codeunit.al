@@ -7,17 +7,6 @@ codeunit 50130 "Inline Query Tests"
         InlineQuery: Codeunit "Inline Query";
         InlineQueryTestLibrary: Codeunit "Inline Query Test - Library";
 
-    local procedure GetOrderCount(): Integer
-    var
-        InlineQuery: Codeunit "Inline Query";
-        OrderCount: Integer;
-        QueryTxt: Label 'SELECT COUNT(1) FROM [Sales Header] WHERE Status = ''Released''', Locked = true;
-    begin
-        OrderCount := InlineQuery.AsInteger(QueryTxt);
-        exit(OrderCount);
-    end;
-
-
     [Test]
     procedure CountRecords()
     var
@@ -25,20 +14,18 @@ codeunit 50130 "Inline Query Tests"
         RecCount: Integer;
         RecCountFromQuery: Integer;
         QueryText: Label 'SELECT COUNT(1) FROM [Inline Query Test Data] WHERE [Boolean Value] = true', Locked = true;
-        CountMisMatchErr: Label 'Record count should be equal to %1', Comment = '%1 = Record Count
+        CountMisMatchErr: Label 'Record count should be equal to %1', Comment = '%1 = Record Count';
+    begin
         // [SCENARIO] Inline Query should return count of records in the source table after applying filters.
         // [GIVEN] Inline Query that returns Count
-eturns Count
         InlineQueryTestLibrary.SetupTestData();
         InlineQueryTestData.SetRange("Boolean Value", true);
-        RecCount := InlineQueryTestD
+        RecCount := InlineQueryTestData.Count();
 
         // [WHEN] Executing AsInteger method with select COUNT function in the Inline Query.
-nline Query.
-        RecCountFromQuery := InlineQuery.AsInteger
+        RecCountFromQuery := InlineQuery.AsInteger(QueryText);
 
         // [THEN] Count from the AL Code and the Inline Query's return value should match
-should match
         Assert.AreEqual(RecCount, RecCountFromQuery, StrSubstNo(CountMisMatchErr, RecCount));
     end;
 
@@ -49,22 +36,20 @@ should match
         ExpectedValue: Time;
         ValueFromQuery: Time;
         QueryText: Label 'SELECT FIRST([Time Value]) FROM [Inline Query Test Data] WHERE [Integer Value] > 50', Locked = true;
-        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value
+        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value';
+    begin
         // [SCENARIO] Inline Query should return first value from the source table after applying filters.
         // [GIVEN] Inline Query that returns first value
- first value
         InlineQueryTestLibrary.SetupTestData();
 
         InlineQueryTestData.SetFilter("Integer Value", '>50');
         InlineQueryTestData.FindFirst();
-        ExpectedValue := InlineQueryTestData."
+        ExpectedValue := InlineQueryTestData."Time Value";
 
         // [WHEN] Executing AsTime method with select FIRST function in the Inline Query.
-nline Query.
-        ValueFromQuery := InlineQuery.AsTime
+        ValueFromQuery := InlineQuery.AsTime(QueryText);
 
         // [THEN] Time Value from the AL Code and the Inline Query's return value should match
-should match
         Assert.AreEqual(ExpectedValue, ValueFromQuery, StrSubstNo(ValueMisMatchErr, ExpectedValue));
     end;
 
@@ -75,22 +60,20 @@ should match
         ExpectedValue: Text[100];
         ValueFromQuery: Text[100];
         QueryText: Label 'SELECT FIRST([Text Value]) FROM [Inline Query Test Data] WHERE [Integer Value] > 50', Locked = true;
-        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value
+        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value';
+    begin
         // [SCENARIO] Inline Query should return first value from the source table after applying filters.
         // [GIVEN] Inline Query that returns first value
- first value
         InlineQueryTestLibrary.SetupTestData();
 
         InlineQueryTestData.SetFilter("Integer Value", '>50');
         InlineQueryTestData.FindFirst();
-        ExpectedValue := InlineQueryTestData."
+        ExpectedValue := InlineQueryTestData."Text Value";
 
         // [WHEN] Executing AsTime method with select FIRST function in the Inline Query.
-nline Query.
-        ValueFromQuery := InlineQuery.AsText
+        ValueFromQuery := InlineQuery.AsText(QueryText);
 
         // [THEN] Text Value from the AL Code and the Inline Query's return value should match
-should match
         Assert.AreEqual(ExpectedValue, ValueFromQuery, StrSubstNo(ValueMisMatchErr, ExpectedValue));
     end;
 
@@ -101,22 +84,20 @@ should match
         ExpectedValue: Date;
         ValueFromQuery: Date;
         QueryText: Label 'SELECT LAST([Date Value]) FROM [Inline Query Test Data] WHERE [Decimal Value] < 80', Locked = true;
-        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value
+        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value';
+    begin
         // [SCENARIO] Inline Query should return last value from the source table after applying filters.
         // [GIVEN] Inline Query that returns last value
-s last value
         InlineQueryTestLibrary.SetupTestData();
 
         InlineQueryTestData.SetFilter("Decimal Value", '<80');
         InlineQueryTestData.FindLast();
-        ExpectedValue := InlineQueryTestData."
+        ExpectedValue := InlineQueryTestData."Date Value";
 
         // [WHEN] Executing AsDate method with select LAST function in the Inline Query.
-nline Query.
-        ValueFromQuery := InlineQuery.AsDate
+        ValueFromQuery := InlineQuery.AsDate(QueryText);
 
         // [THEN] Date Value from the AL Code and the Inline Query's return value should match
-should match
         Assert.AreEqual(ExpectedValue, ValueFromQuery, StrSubstNo(ValueMisMatchErr, ExpectedValue));
     end;
 
@@ -127,49 +108,44 @@ should match
         ExpectedValue: Code[20];
         ValueFromQuery: Code[20];
         QueryText: Label 'SELECT LAST([Code Value]) FROM [Inline Query Test Data] WHERE [Decimal Value] < 80', Locked = true;
-        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value
+        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value';
+    begin
         // [SCENARIO] Inline Query should return last value from the source table after applying filters.
         // [GIVEN] Inline Query that returns last value
-s last value
         InlineQueryTestLibrary.SetupTestData();
 
         InlineQueryTestData.SetFilter("Decimal Value", '<80');
         InlineQueryTestData.FindLast();
-        ExpectedValue := InlineQueryTestData."
+        ExpectedValue := InlineQueryTestData."Code Value";
 
         // [WHEN] Executing AsCode method with select LAST function in the Inline Query.
-nline Query.
-        ValueFromQuery := InlineQuery.AsCode
+        ValueFromQuery := InlineQuery.AsCode(QueryText);
 
         // [THEN] Code Value from the AL Code and the Inline Query's return value should match
-should match
         Assert.AreEqual(ExpectedValue, ValueFromQuery, StrSubstNo(ValueMisMatchErr, ExpectedValue));
     end;
 
     [Test]
     procedure LastBooleanValueTest()
     var
-        InlineQueryTestData: Record "Inline Query
-ta";        
+        InlineQueryTestData: Record "Inline Query Test Data";
         ExpectedValue: Boolean;
         ValueFromQuery: Boolean;
         QueryText: Label 'SELECT LAST([Boolean Value]) FROM [Inline Query Test Data] WHERE [Decimal Value] < 80', Locked = true;
-        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value
+        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value';
+    begin
         // [SCENARIO] Inline Query should return last value from the source table after applying filters.
         // [GIVEN] Inline Query that returns last value
-s last value
         InlineQueryTestLibrary.SetupTestData();
 
         InlineQueryTestData.SetFilter("Decimal Value", '<80');
         InlineQueryTestData.FindLast();
-        ExpectedValue := InlineQueryTestData."Boo
+        ExpectedValue := InlineQueryTestData."Boolean Value";
 
         // [WHEN] Executing AsBoolean method with select LAST function in the Inline Query.
-nline Query.
-        ValueFromQuery := InlineQuery.AsBoolean
+        ValueFromQuery := InlineQuery.AsBoolean(QueryText);
 
         // [THEN] Code Value from the AL Code and the Inline Query's return value should match
-should match
         Assert.AreEqual(ExpectedValue, ValueFromQuery, StrSubstNo(ValueMisMatchErr, ExpectedValue));
     end;
 
@@ -180,24 +156,22 @@ should match
         ExpectedValue: Decimal;
         ValueFromQuery: Decimal;
         QueryText: Label 'SELECT MIN([BigInteger Value]) FROM [Inline Query Test Data] WHERE [Date Value] <= ''%1'' AND [Time Value] >= ''%2''', Locked = true;
-        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value
+        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value';
+    begin
         // [SCENARIO] Inline Query should return min value from the source table after applying filters.
         // [GIVEN] Inline Query that returns min value
-ns min value
         InlineQueryTestLibrary.SetupTestData();
 
         InlineQueryTestData.SetCurrentKey("BigInteger Value");
         InlineQueryTestData.SetFilter("Date Value", '<=%1', 20200131D);
         InlineQueryTestData.SetFilter("Time Value", '>=%1', 045900T);
         InlineQueryTestData.FindFirst();
-        ExpectedValue := InlineQueryTestData."BigInt
+        ExpectedValue := InlineQueryTestData."BigInteger Value";
 
         // [WHEN] Executing AsBigInteger method with select MIN function in the Inline Query.
-nline Query.
-        ValueFromQuery := InlineQuery.AsBigInteger(StrSubstNo(QueryText, 20200131D
+        ValueFromQuery := InlineQuery.AsBigInteger(StrSubstNo(QueryText, 20200131D, 045900T));
 
         // [THEN] BigInteger Value from the AL Code and the Inline Query's return value should match
-should match
         Assert.AreEqual(ExpectedValue, ValueFromQuery, StrSubstNo(ValueMisMatchErr, ExpectedValue));
     end;
 
@@ -208,23 +182,21 @@ should match
         ExpectedValue: DateTime;
         ValueFromQuery: DateTime;
         QueryText: Label 'SELECT MAX([DateTime Value]) FROM [Inline Query Test Data] WHERE [Decimal Value] LIKE ''40.1|50.1''', Locked = true;
-        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value
+        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value';
+    begin
         // [SCENARIO] Inline Query should return max value from the source table after applying filters.
         // [GIVEN] Inline Query that returns max value
-ns max value
         InlineQueryTestLibrary.SetupTestData();
 
         InlineQueryTestData.SetCurrentKey("DateTime Value");
         InlineQueryTestData.SetFilter("Decimal Value", '40.1|50.1');
         InlineQueryTestData.FindLast();
-        ExpectedValue := InlineQueryTestData."Date
+        ExpectedValue := InlineQueryTestData."DateTime Value";
 
         // [WHEN] Executing AsDateTime method with select MAX function in the Inline Query.
-nline Query.
-        ValueFromQuery := InlineQuery.AsDateTime
+        ValueFromQuery := InlineQuery.AsDateTime(QueryText);
 
         // [THEN] DateTime Value from the AL Code and the Inline Query's return value should match
-should match
         Assert.AreEqual(ExpectedValue, ValueFromQuery, StrSubstNo(ValueMisMatchErr, ExpectedValue));
     end;
 
@@ -235,21 +207,19 @@ should match
         ExpectedValue: Decimal;
         ValueFromQuery: Decimal;
         QueryText: Label 'SELECT AVG([Decimal Value]) FROM [Inline Query Test Data]', Locked = true;
-        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value
+        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value';
+    begin
         // [SCENARIO] Inline Query should return avg value from the source table after applying filters.
         // [GIVEN] Inline Query that returns avg value
-ns avg value
         InlineQueryTestLibrary.SetupTestData();
 
         InlineQueryTestData.CalcSums("Decimal Value");
-        ExpectedValue := InlineQueryTestData."Decimal Value" / InlineQueryTestD
+        ExpectedValue := InlineQueryTestData."Decimal Value" / InlineQueryTestData.Count();
 
         // [WHEN] Executing AsDecimal method with select AVG function in the Inline Query.
-nline Query.
-        ValueFromQuery := InlineQuery.AsDecimal
+        ValueFromQuery := InlineQuery.AsDecimal(QueryText);
 
         // [THEN] Decimal Value from the AL Code and the Inline Query's return value should match
-should match
         Assert.AreEqual(ExpectedValue, ValueFromQuery, StrSubstNo(ValueMisMatchErr, ExpectedValue));
     end;
 
@@ -260,22 +230,44 @@ should match
         ExpectedValue: Integer;
         ValueFromQuery: Integer;
         QueryText: Label 'SELECT SUM([Integer Value]) FROM [%1].[Inline Query Test Data] WHERE [Boolean Value] <> false', Locked = true;
-        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value
+        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value';
+    begin
         // [SCENARIO] Inline Query should return sum of values from the source table after applying filters.
         // [GIVEN] Inline Query that returns sum value
-ns sum value
         InlineQueryTestLibrary.SetupTestData();
         InlineQueryTestData.SetFilter("Boolean Value", '<>false');
         InlineQueryTestData.CalcSums("Integer Value");
-        ExpectedValue := InlineQueryTestData."Int
+        ExpectedValue := InlineQueryTestData."Integer Value";
 
         // [WHEN] Executing AsInteger method with select SUM function in the Inline Query.
-nline Query.
-        ValueFromQuery := InlineQuery.AsInteger(StrSubstNo(QueryText, Co
+        ValueFromQuery := InlineQuery.AsInteger(StrSubstNo(QueryText, CompanyName));
 
         // [THEN] Inline Query should return the expected quantity
-ted quantity
         Assert.AreEqual(ExpectedValue, ValueFromQuery, StrSubstNo(ValueMisMatchErr, ExpectedValue));
     end;
 
+    [Test]
+    procedure OrderByTest()
+    var
+        InlineQueryTestData: Record "Inline Query Test Data";
+        ExpectedValue: Text;
+        ValueFromQuery: Text;
+        RecordRef: RecordRef;
+        QueryText: Label 'SELECT [Integer Value], [BigInteger Value] FROM [Inline Query Test Data] WHERE [Boolean Value] <> false ORDER BY [Integer Value]', Locked = true;
+        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value';
+    begin
+        // [SCENARIO] Inline Query should apply sorting and filters to the RecordRef parameter.
+        // [GIVEN] Inline Query with Order By and Filters
+        InlineQueryTestLibrary.SetupTestData();
+        InlineQueryTestData.SetCurrentKey("Integer Value");
+        InlineQueryTestData.SetFilter("Boolean Value", '<>false');
+        ExpectedValue := InlineQueryTestData.GetView(true);
+
+        // [WHEN] Executing AsRecord method with sorting and filters in the Inline Query.
+        InlineQuery.AsRecord(QueryText, RecordRef);
+        ValueFromQuery := RecordRef.GetView(true);
+
+        // [THEN] Inline Query should return the expected quantity
+        Assert.AreEqual(ExpectedValue, ValueFromQuery, StrSubstNo(ValueMisMatchErr, ExpectedValue));
+    end;
 }

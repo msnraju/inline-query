@@ -14,6 +14,7 @@ codeunit 50103 "Inline Query Compiler"
         JTable: JsonObject;
         JFields: JsonArray;
         JFilters: JsonArray;
+        JOrderByFields: JsonArray;
         NewJASTNode: JsonObject;
     begin
         if JASTNode.Get('Table', JToken) then
@@ -25,9 +26,13 @@ codeunit 50103 "Inline Query Compiler"
         if JASTNode.Get('Filters', JToken) then
             JFilters := CompileFilters(JToken.AsArray(), TableID);
 
+        if JASTNode.Get('OrderBy', JToken) then
+            JOrderByFields := CompileOrderByFields(JToken.AsArray(), TableID);
+
         NewJASTNode.Add('Fields', JFields);
         NewJASTNode.Add('Table', JTable);
         NewJASTNode.Add('Filters', JFilters);
+        NewJASTNode.Add('OrderBy', JOrderByFields);
 
         exit(NewJASTNode);
     end;
@@ -164,6 +169,21 @@ codeunit 50103 "Inline Query Compiler"
 
         exit(NewJFieldNode);
     end;
+
+    local procedure CompileOrderByFields(JFields: JsonArray; TableID: Integer): JsonArray
+    var
+        JToken: JsonToken;
+        FieldID: Integer;
+        NewJFields: JsonArray;
+    begin
+        foreach JToken in JFields do begin
+            FieldID := GetFieldID(JToken.AsValue().AsText(), TableID);
+            NewJFields.Add(FieldID);
+        end;
+
+        exit(NewJFields);
+    end;
+
 
     local procedure CompileTable(JTable: JsonObject; var TableID: Integer): JsonObject
     var

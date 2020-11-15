@@ -13,6 +13,7 @@ codeunit 50102 "Inline Query Parser"
         JTable: JsonObject;
         JFields: JsonArray;
         JFilters: JsonArray;
+        JOrderByFields: JsonArray;
         JASTNode: JsonObject;
     begin
         if JTokens.Count() = 0 then
@@ -25,12 +26,14 @@ codeunit 50102 "Inline Query Parser"
         JFields := ParseFields(JTokens, Pos);
         JTable := ParseTable(JTokens, Pos);
         JFilters := ParseFilters(JTokens, Pos);
+        JOrderByFields := ParseOrderBy(JTokens, Pos);
 
         EndOfQuery(JTokens, Pos);
 
         JASTNode.Add('Fields', JFields);
         JASTNode.Add('Table', JTable);
         JASTNode.Add('Filters', JFilters);
+        JASTNode.Add('OrderBy', JOrderByFields);
 
         exit(JASTNode);
     end;
@@ -72,7 +75,7 @@ codeunit 50102 "Inline Query Parser"
             exit;
 
         if UpperCase(TokenValue) <> 'WHERE' then
-            Error(SyntaxErrorErr, 'WHERE');
+            exit;
 
         Pos += 1;
 
@@ -114,6 +117,45 @@ codeunit 50102 "Inline Query Parser"
         end;
 
         exit(JFilters);
+    end;
+
+    local procedure ParseOrderBy(JTokens: JsonArray; var Pos: Integer): JsonArray
+    var
+        TokenValue: Text;
+        TokenType: Enum "Inline Query Token Type";
+        FieldName: Text;
+        JFields: JsonArray;
+    begin
+        if not PeekToken(JTokens, Pos, TokenValue, TokenType) then
+            exit;
+
+        if UpperCase(TokenValue) <> 'ORDER' then
+            exit;
+
+        Pos += 1;
+
+        if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
+            Error(SyntaxErrorErr, 'ORDER');
+
+        if UpperCase(TokenValue) <> 'BY' then
+            Error(SyntaxErrorErr, 'BY');
+
+
+        while (UpperCase(TokenValue) = 'BY') or (TokenValue = ',') do begin
+            if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
+                Error(SyntaxErrorErr, 'Field');
+
+            FieldName := TokenValue;
+            JFields.Add(FieldName);
+
+            if not PeekToken(JTokens, Pos, TokenValue, TokenType) then
+                Break;
+
+            if TokenValue = ',' then
+                Pos += 1;
+        end;
+
+        exit(JFields);
     end;
 
     local procedure ParseTable(JTokens: JsonArray; var Pos: Integer): JsonObject
