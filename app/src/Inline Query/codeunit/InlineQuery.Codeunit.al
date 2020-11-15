@@ -110,7 +110,7 @@ codeunit 50104 "Inline Query"
     end;
 
     /// <summary>
-    /// Executes the Query and updates ResultVariant with the calculated value.
+    /// Apply Filters and Sorting to RecordRef from the Query.
     /// </summary>
     /// <param name="QueryText">The inline query text</param>
     /// <param name="RecordRef">The RecordRef variable to be updated with Sorting and Filters</param>
