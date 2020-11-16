@@ -16,9 +16,13 @@ codeunit 50103 "Inline Query Compiler"
         JFilters: JsonArray;
         JOrderByFields: JsonArray;
         NewJASTNode: JsonObject;
+        Top: Integer;
     begin
         if JASTNode.Get('Table', JToken) then
             JTable := CompileTable(JToken.AsObject(), TableID);
+
+        if JASTNode.Get('Top', JToken) then
+            Top := JToken.AsValue().AsInteger();
 
         if JASTNode.Get('Fields', JToken) then
             JFields := CompileFields(JToken.AsArray(), TableID);
@@ -29,6 +33,7 @@ codeunit 50103 "Inline Query Compiler"
         if JASTNode.Get('OrderBy', JToken) then
             JOrderByFields := CompileOrderByFields(JToken.AsArray(), TableID);
 
+        NewJASTNode.Add('Top', Top);
         NewJASTNode.Add('Fields', JFields);
         NewJASTNode.Add('Table', JTable);
         NewJASTNode.Add('Filters', JFilters);
