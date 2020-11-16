@@ -187,48 +187,75 @@ codeunit 50102 "Inline Query Parser"
     var
         TokenValue: Text;
         TokenType: Enum "Inline Query Token Type";
-        FieldName: Text;
-        FunctionName: Text;
         JFields: JsonArray;
     begin
-        while UpperCase(TokenValue) <> 'FROM' do begin
-            if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
-                Error(SyntaxErrorErr, 'Field');
-
-            FieldName := TokenValue;
+        while (TokenValue = '') or (TokenValue = ',') do begin
+            JFields.Add(ReadField(JTokens, Pos));
 
             if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
                 Error(SyntaxErrorErr, 'FROM');
 
-            case TokenType of
-                TokenType::"Opening Parenthesis":
-                    begin
-                        FunctionName := FieldName;
+            if TokenValue = 'FROM' then
+                break;
 
-                        if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
-                            Error(SyntaxErrorErr, 'Field');
-
-                        FieldName := TokenValue;
-                        if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
-                            Error(SyntaxErrorErr, ')');
-
-                        if TokenType <> TokenType::"Closing Parenthesis" then
-                            Error(SyntaxErrorErr, ')');
-
-                        if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
-                            Error(SyntaxErrorErr, 'FROM');
-
-                        JFields.Add(GetFieldNode(FieldName, true, FunctionName));
-                    end;
-                TokenType::Comma:
-                    JFields.Add(GetFieldNode(FieldName, false, ''));
-            end;
+            if UpperCase(TokenValue) <> ',' then
+                Error(SyntaxErrorErr, 'FROM');
         end;
 
         if UpperCase(TokenValue) <> 'FROM' then
             Error(SyntaxErrorErr, 'FROM');
 
         exit(JFields);
+    end;
+
+    local procedure ReadField(JTokens: JsonArray; var Pos: Integer): JsonObject
+    var
+        TokenValue: Text;
+        TokenType: Enum "Inline Query Token Type";
+        FieldName: Text;
+        Name: Text;
+        FunctionName: Text;
+        IsFunction: Boolean;
+    begin
+        if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
+            Error(SyntaxErrorErr, 'Field');
+
+        FieldName := TokenValue;
+
+        if not PeekToken(JTokens, Pos, TokenValue, TokenType) then
+            Error(SyntaxErrorErr, 'Field');
+
+        if TokenType = TokenType::"Opening Parenthesis" then begin
+            Pos += 1;
+            FunctionName := FieldName;
+            IsFunction := true;
+
+            if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
+                Error(SyntaxErrorErr, 'Field');
+
+            FieldName := TokenValue;
+            if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
+                Error(SyntaxErrorErr, ')');
+
+            if TokenType <> TokenType::"Closing Parenthesis" then
+                Error(SyntaxErrorErr, ')');
+
+            if not PeekToken(JTokens, Pos, TokenValue, TokenType) then
+                Error(SyntaxErrorErr, 'Field');
+        end;
+
+        if UpperCase(TokenValue) = 'AS' then begin
+            Pos += 1;
+            if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
+                Error(SyntaxErrorErr, 'Field');
+
+            Name := TokenValue;
+
+            if not PeekToken(JTokens, Pos, TokenValue, TokenType) then
+                Error(SyntaxErrorErr, 'Field');
+        end;
+
+        exit(GetFieldNode(FieldName, IsFunction, FunctionName, Name));
     end;
 
     local procedure ReadToken(
@@ -280,15 +307,15 @@ codeunit 50102 "Inline Query Parser"
             TokenType := "Inline Query Token Type".FromInteger(JToken.AsValue().AsInteger());
     end;
 
-    local procedure GetFieldNode(Name: Text; IsFunction: Boolean; FunctionName: Text): JsonObject
+    local procedure GetFieldNode(FieldName: Text; IsFunction: Boolean; FunctionName: Text; Name: Text): JsonObject
     var
         JObject: JsonObject;
     begin
-        JObject.Add('Field', Name);
+        JObject.Add('Field', FieldName);
         JObject.Add('IsFunction', IsFunction);
         if IsFunction then
             JObject.Add('Function', FunctionName);
-
+        JObject.Add('Name', Name);
         exit(JObject);
     end;
 

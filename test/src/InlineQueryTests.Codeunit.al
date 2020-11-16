@@ -257,7 +257,7 @@ codeunit 50130 "Inline Query Tests"
         ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value';
     begin
         // [SCENARIO] Inline Query should apply sorting and filters to the RecordRef parameter.
-        // [GIVEN] Inline Query with Order By and Filters
+        // [GIVEN] Inline Query with Sorting and Filters
         InlineQueryTestLibrary.SetupTestData();
         InlineQueryTestData.SetCurrentKey("Integer Value");
         InlineQueryTestData.SetFilter("Boolean Value", '<>false');
@@ -266,6 +266,34 @@ codeunit 50130 "Inline Query Tests"
         // [WHEN] Executing AsRecord method with sorting and filters in the Inline Query.
         InlineQuery.AsRecord(QueryText, RecordRef);
         ValueFromQuery := RecordRef.GetView(true);
+
+        // [THEN] Inline Query should return the expected quantity
+        Assert.AreEqual(ExpectedValue, ValueFromQuery, StrSubstNo(ValueMisMatchErr, ExpectedValue));
+    end;
+
+    [Test]
+    procedure AsJsonTest()
+    var
+        InlineQueryTestData: Record "Inline Query Test Data";
+        JExpectedValue: JsonArray;
+        ExpectedValue: Text;
+        JValueFromQuery: JsonArray;
+        ValueFromQuery: Text;
+        RecordRef: RecordRef;
+        QueryText: Label 'SELECT [Boolean Value] AS C1, [Time Value] AS C2, [Date Value] AS C3, [DateTime Value] AS C4, [Integer Value] AS C5, [BigInteger Value] AS C6, [Decimal Value] AS C7, [Code Value] AS C8, [Text Value] AS C9, [Guid Value] AS C10, [Duration Value] AS C11, [RecordId Value] AS C12, [Option Value] AS C13 FROM [Inline Query Test Data] WHERE [Boolean Value] <> false ORDER BY [Integer Value]', Locked = true;
+        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value';
+    begin
+        // [SCENARIO] Inline Query should export data from the source table to JsonArray
+        // [GIVEN] Inline Query with Json property names
+        InlineQueryTestLibrary.SetupTestData();
+        InlineQueryTestData.SetCurrentKey("Integer Value");
+        InlineQueryTestData.SetFilter("Boolean Value", '<>false');
+        JExpectedValue := InlineQueryTestLibrary.DataToJson(InlineQueryTestData);
+        JExpectedValue.WriteTo(ExpectedValue);
+
+        // [WHEN] Executing AsJsonArray method
+        JValueFromQuery := InlineQuery.AsJsonArray(QueryText);
+        JValueFromQuery.WriteTo(ValueFromQuery);
 
         // [THEN] Inline Query should return the expected quantity
         Assert.AreEqual(ExpectedValue, ValueFromQuery, StrSubstNo(ValueMisMatchErr, ExpectedValue));

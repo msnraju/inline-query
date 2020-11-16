@@ -8,6 +8,13 @@ page 50100 "Inline Query Test"
     {
         area(Content)
         {
+            field(QueryType; QueryType)
+            {
+                ApplicationArea = All;
+                ToolTip = 'Query Type';
+                Caption = 'Qery Type';
+                OptionCaption = 'Variant,RecordRef,JsonArray';
+            }
             field("Inline Query"; QueryText)
             {
                 ApplicationArea = All;
@@ -43,16 +50,27 @@ page 50100 "Inline Query Test"
                 trigger OnAction()
                 var
                     RecordRef: RecordRef;
-                    ResultVariant: Variant;
+                    JArray: JsonArray;
+                    ValueVariant: Variant;
                 begin
                     Result := '';
-                    InlineQuery.AsRecord(QueryText, ResultVariant);
-                    if ResultVariant.IsRecordRef then begin
-                        RecordRef := ResultVariant;
-                        Message('%1', RecordRef.GetView());
+                    case QueryType of
+                        QueryType::Variant:
+                            begin
+                                InlineQuery.AsVariant(QueryText, ValueVariant);
+                                Result := Format(ValueVariant);
+                            end;
+                        QueryType::JsonArray:
+                            begin
+                                JArray := InlineQuery.AsJsonArray(QueryText);
+                                JArray.WriteTo(Result);
+                            end;
+                        QueryType::RecordRef:
+                            begin
+                                InlineQuery.AsRecord(QueryText, RecordRef);
+                                Result := RecordRef.GetView(true);
+                            end;
                     end;
-
-                    Result := Format(ResultVariant);
                 end;
             }
         }
@@ -60,6 +78,7 @@ page 50100 "Inline Query Test"
 
     var
         InlineQuery: Codeunit "Inline Query";
+        QueryType: Option Variant,RecordRef,JsonArray;
         QueryText: Text;
         Result: Text;
 }

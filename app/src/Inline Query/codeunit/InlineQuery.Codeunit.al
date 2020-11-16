@@ -118,4 +118,14 @@ codeunit 50104 "Inline Query"
     begin
         InlineQueryImpl.AsRecord(QueryText, RecordRef);
     end;
+
+    /// <summary>
+    /// Executes the Query and return Records as JsonArray
+    /// </summary>
+    /// <param name="QueryText">The inline query text</param>
+    /// <returns>Records as JsonArray</returns>
+    procedure AsJsonArray(QueryText: Text): JsonArray
+    begin
+        exit(InlineQueryImpl.AsJsonArray(QueryText));
+    end;
 }

@@ -167,6 +167,9 @@ codeunit 50103 "Inline Query Compiler"
 
         NewJFieldNode.Add('Field', FieldID);
 
+        JField.Get('Name', JToken);
+        NewJFieldNode.Add('Name', JToken.AsValue().AsText());
+
         exit(NewJFieldNode);
     end;
 

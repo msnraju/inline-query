@@ -18,6 +18,39 @@ codeunit 50140 "Inline Query Test - Library"
         InsertDate(true, 20200110D, 105900T, CreateDateTime(20200110D, 115900T), 100, 100, 100.10, 'C010', 'Text010');
     end;
 
+    procedure DataToJson(var InlineQueryTestData: Record "Inline Query Test Data"): JsonArray
+    var
+        JRecords: JsonArray;
+    begin
+        if InlineQueryTestData.FindSet() then
+            repeat
+                JRecords.Add(GetRecordJson(InlineQueryTestData));
+            until InlineQueryTestData.Next() = 0;
+
+        exit(JRecords);
+    end;
+
+    local procedure GetRecordJson(var InlineQueryTestData: Record "Inline Query Test Data"): JsonObject
+    var
+        JRecord: JsonObject;
+    begin
+        JRecord.Add('C1', InlineQueryTestData."Boolean Value");
+        JRecord.Add('C2', InlineQueryTestData."Time Value");
+        JRecord.Add('C3', InlineQueryTestData."Date Value");
+        JRecord.Add('C4', InlineQueryTestData."DateTime Value");
+        JRecord.Add('C5', InlineQueryTestData."Integer Value");
+        JRecord.Add('C6', InlineQueryTestData."BigInteger Value");
+        JRecord.Add('C7', InlineQueryTestData."Decimal Value");
+        JRecord.Add('C8', InlineQueryTestData."Code Value");
+        JRecord.Add('C9', InlineQueryTestData."Text Value");
+        JRecord.Add('C10', InlineQueryTestData."Guid Value");
+        JRecord.Add('C11', InlineQueryTestData."Duration Value");
+        JRecord.Add('C12', Format(InlineQueryTestData."RecordId Value", 0, 9));
+        JRecord.Add('C13', InlineQueryTestData."Option Value");
+
+        exit(JRecord);
+    end;
+
     local procedure InsertDate(
         BoolValue: Boolean;
         DateValue: Date;
@@ -30,7 +63,10 @@ codeunit 50140 "Inline Query Test - Library"
         TxtValue: Text[100])
     var
         InlineQueryTestData: Record "Inline Query Test Data";
+        CompanyInfo: Record "Company Information";
     begin
+        CompanyInfo.Get();
+
         InlineQueryTestData.Init();
         InlineQueryTestData."Boolean Value" := BoolValue;
         InlineQueryTestData."Time Value" := TimeValue;
@@ -41,6 +77,11 @@ codeunit 50140 "Inline Query Test - Library"
         InlineQueryTestData."Decimal Value" := DecValue;
         InlineQueryTestData."Code Value" := CodeValue;
         InlineQueryTestData."Text Value" := TxtValue;
+
+        InlineQueryTestData."Guid Value" := CreateGuid();
+        InlineQueryTestData."Duration Value" := 50000;
+        InlineQueryTestData."RecordId Value" := CompanyInfo.RecordId;
+        InlineQueryTestData."Option Value" := InlineQueryTestData."Option Value"::One;
         InlineQueryTestData.Insert();
     end;
 }
