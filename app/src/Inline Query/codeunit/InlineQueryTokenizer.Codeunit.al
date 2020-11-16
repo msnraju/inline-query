@@ -148,7 +148,7 @@ codeunit 50100 "Inline Query Tokenizer"
         then begin
             while ((Chr >= 'A') and (Chr <= 'Z')) or
               ((Chr >= 'a') and (Chr <= 'z')) or
-              ((Chr >= '0') and (Chr <= '0')) or
+              ((Chr >= '0') and (Chr <= '9')) or
               (Chr = '_')
             do begin
                 TokenValue += QueryText[Pos];

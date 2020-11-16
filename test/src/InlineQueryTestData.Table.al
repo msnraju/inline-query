@@ -35,6 +35,19 @@ table 50100 "Inline Query Test Data"
         field(10; "Text Value"; Text[100])
         {
         }
+        field(11; "Guid Value"; Guid)
+        {
+        }
+        field(12; "Duration Value"; Duration)
+        {
+        }
+        field(13; "RecordId Value"; RecordId)
+        {
+        }
+        field(14; "Option Value"; Option)
+        {
+            OptionMembers = " ","One","Two","Three";
+        }
     }
 
     keys

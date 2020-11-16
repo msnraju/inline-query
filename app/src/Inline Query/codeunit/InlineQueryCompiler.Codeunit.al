@@ -125,6 +125,7 @@ codeunit 50103 "Inline Query Compiler"
         FunctionName: Text;
         FieldID: Integer;
         FieldName: Text;
+        Name: Text;
         FunctionType: Enum "Inline Query Function Type";
         NewJFieldNode: JsonObject;
     begin
@@ -166,6 +167,10 @@ codeunit 50103 "Inline Query Compiler"
             NewJFieldNode.Add('Function', FunctionType.AsInteger());
 
         NewJFieldNode.Add('Field', FieldID);
+
+        JField.Get('Name', JToken);
+        Name := JToken.AsValue().AsText();
+        NewJFieldNode.Add('Name', Name);
 
         exit(NewJFieldNode);
     end;

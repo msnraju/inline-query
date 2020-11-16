@@ -9,6 +9,7 @@ codeunit 50101 "Inline Query Impl"
         EmptyQueryErr: Label 'Query should not be empty.';
         FunctionExpectedErr: Label 'Function expected.';
         SingleFunctionExpectedErr: Label 'A single function expected.';
+        AggregateFunctionsErr: Label 'Cannot use aggregate function in this method.';
         SortingLbl: Label 'SORTING(%1)', Locked = true, Comment = '%1 = Field';
 
     procedure AsInteger(QueryText: Text): Integer
@@ -98,7 +99,174 @@ codeunit 50101 "Inline Query Impl"
         JASTNode: JsonObject;
     begin
         JASTNode := QueryAsASTNode(QueryText);
+        if HasColumnFunctions(JASTNode) then
+            Error(AggregateFunctionsErr);
+
         PrepareRecRef(RecordRef, JASTNode);
+    end;
+
+    procedure AsJsonArray(QueryText: Text): JsonArray
+    var
+        RecordRef: RecordRef;
+        JASTNode: JsonObject;
+        JToken: JsonToken;
+        JFields: JsonArray;
+        JRecord: JsonObject;
+        JRecords: JsonArray;
+    begin
+        JASTNode := QueryAsASTNode(QueryText);
+        if HasColumnFunctions(JASTNode) then
+            Error(AggregateFunctionsErr);
+
+        PrepareRecRef(RecordRef, JASTNode);
+
+        if not JASTNode.Get('Fields', JToken) then
+            exit;
+
+        JFields := JToken.AsArray();
+        if RecordRef.FindSet() then
+            repeat
+                JRecord := RecordRef2Json(RecordRef, JFields);
+                JRecords.Add(JRecord);
+            until RecordRef.Next() = 0;
+
+        exit(JRecords);
+    end;
+
+    local procedure RecordRef2Json(var RecordRef: RecordRef; JFields: JsonArray): JsonObject
+    var
+        FieldRef: FieldRef;
+        JRecord: JsonObject;
+        JToken: JsonToken;
+        JField: JsonObject;
+        FieldID: Integer;
+        Name: Text;
+    begin
+        foreach JToken in JFields do begin
+            JField := JToken.AsObject();
+
+            JField.Get('Field', JToken);
+            FieldID := JToken.AsValue().AsInteger();
+            FieldRef := RecordRef.Field(FieldID);
+
+            JField.Get('Name', JToken);
+            Name := JToken.AsValue().AsText();
+
+            if Name = '' then
+                Name := FieldRef.Name;
+
+            AddJsonProperty(JRecord, Name, FieldRef);
+        end;
+
+        exit(JRecord);
+    end;
+
+    local procedure AddJsonProperty(JRecord: JsonObject; Name: Text; FieldRef: FieldRef)
+    var
+        TextValue: Text;
+        CodeValue: Code[2048];
+        BigIntegerValue: BigInteger;
+        BooleanValue: Boolean;
+        DateValue: Date;
+        DateTimeValue: DateTime;
+        DecimalValue: Decimal;
+        DurationValue: Duration;
+        GuidValue: Guid;
+        IntegerValue: Integer;
+        OptionValue: Option;
+        TimeValue: Time;
+    begin
+        if FieldRef.Class = FieldRef.Class::FlowField then
+            FieldRef.CalcField();
+
+        case FieldRef.Type of
+            FieldRef.Type::Text:
+                begin
+                    TextValue := FieldRef.Value;
+                    JRecord.Add(Name, TextValue);
+                end;
+            FieldRef.Type::Code:
+                begin
+                    CodeValue := FieldRef.Value;
+                    JRecord.Add(Name, CodeValue);
+                end;
+            FieldRef.Type::BigInteger:
+                begin
+                    BigIntegerValue := FieldRef.Value;
+                    JRecord.Add(Name, BigIntegerValue);
+                end;
+            FieldRef.Type::Boolean:
+                begin
+                    BooleanValue := FieldRef.Value;
+                    JRecord.Add(Name, BooleanValue);
+                end;
+            FieldRef.Type::Date:
+                begin
+                    DateValue := FieldRef.Value;
+                    JRecord.Add(Name, DateValue);
+                end;
+            FieldRef.Type::DateTime:
+                begin
+                    DateTimeValue := FieldRef.Value;
+                    JRecord.Add(Name, DateTimeValue);
+                end;
+            FieldRef.Type::Decimal:
+                begin
+                    DecimalValue := FieldRef.Value;
+                    JRecord.Add(Name, DecimalValue);
+                end;
+            FieldRef.Type::Duration:
+                begin
+                    DurationValue := FieldRef.Value;
+                    JRecord.Add(Name, DurationValue);
+                end;
+            FieldRef.Type::Guid:
+                begin
+                    GuidValue := FieldRef.Value;
+                    JRecord.Add(Name, GuidValue);
+                end;
+            FieldRef.Type::Integer:
+                begin
+                    IntegerValue := FieldRef.Value;
+                    JRecord.Add(Name, IntegerValue);
+                end;
+            FieldRef.Type::Option:
+                begin
+                    OptionValue := FieldRef.Value;
+                    JRecord.Add(Name, OptionValue);
+                end;
+            FieldRef.Type::Time:
+                begin
+                    TimeValue := FieldRef.Value;
+                    JRecord.Add(Name, TimeValue);
+                end;
+            FieldRef.Type::Blob,
+            FieldRef.Type::Media,
+            FieldRef.Type::MediaSet,
+            FieldRef.Type::RecordId,
+            FieldRef.Type::TableFilter:
+                JRecord.Add(Name, Format(FieldRef.Value, 0, 9));
+            else
+                JRecord.Add(Name, Format(FieldRef.Value, 0, 9));
+        end;
+    end;
+
+    local procedure HasColumnFunctions(JASTNode: JsonObject): Boolean
+    var
+        JToken: JsonToken;
+        JField: JsonObject;
+        JFields: JsonArray;
+    begin
+        if not JASTNode.Get('Fields', JToken) then
+            exit;
+
+        JFields := JToken.AsArray();
+        foreach JToken in JFields do begin
+            JField := JToken.AsObject();
+            if JField.Get('IsFunction', JToken) then
+                if JToken.AsValue().AsBoolean() then
+                    exit(True);
+        end;
     end;
 
     local procedure QueryAsASTNode(QueryText: Text): JsonObject
