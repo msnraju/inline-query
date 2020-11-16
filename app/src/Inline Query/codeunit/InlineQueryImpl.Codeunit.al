@@ -110,9 +110,6 @@ codeunit 50101 "Inline Query Impl"
         RecordRef: RecordRef;
         JASTNode: JsonObject;
         JToken: JsonToken;
-        JFields: JsonArray;
-        JRecord: JsonObject;
-        JRecords: JsonArray;
     begin
         JASTNode := QueryAsASTNode(QueryText);
         if HasColumnFunctions(JASTNode) then
@@ -123,17 +120,22 @@ codeunit 50101 "Inline Query Impl"
         if not JASTNode.Get('Fields', JToken) then
             exit;
 
-        JFields := JToken.AsArray();
+        exit(Records2Json(RecordRef, JToken.AsArray()))
+    end;
+
+    local procedure Records2Json(var RecordRef: RecordRef; JFields: JsonArray): JsonArray
+    var
+        JRecords: JsonArray;
+    begin
         if RecordRef.FindSet() then
             repeat
-                JRecord := RecordRef2Json(RecordRef, JFields);
-                JRecords.Add(JRecord);
+                JRecords.Add(Record2Json(RecordRef, JFields));
             until RecordRef.Next() = 0;
 
         exit(JRecords);
     end;
 
-    local procedure RecordRef2Json(var RecordRef: RecordRef; JFields: JsonArray): JsonObject
+    local procedure Record2Json(var RecordRef: RecordRef; JFields: JsonArray): JsonObject
     var
         FieldRef: FieldRef;
         JRecord: JsonObject;
@@ -265,7 +267,7 @@ codeunit 50101 "Inline Query Impl"
             JField := JToken.AsObject();
             if JField.Get('IsFunction', JToken) then
                 if JToken.AsValue().AsBoolean() then
-                    exit(True);
+                    exit(true);
         end;
     end;
 
@@ -429,7 +431,6 @@ codeunit 50101 "Inline Query Impl"
         FieldID := JToken.AsValue().AsInteger();
         RecordRef.AddLoadFields(FieldID);
     end;
-
 
     local procedure ApplyFilters(var RecordRef: RecordRef; JFilters: JsonArray)
     var
