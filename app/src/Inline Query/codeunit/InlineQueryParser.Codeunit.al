@@ -10,6 +10,7 @@ codeunit 50102 "Inline Query Parser"
     procedure Parse(JTokens: JsonArray): JsonObject
     var
         Pos: Integer;
+        Top: Integer;
         JTable: JsonObject;
         JFields: JsonArray;
         JFilters: JsonArray;
@@ -22,20 +23,43 @@ codeunit 50102 "Inline Query Parser"
         Pos := 0;
 
         ParseQueryType(JTokens, Pos);
-
+        Top := ParseTopClause(JTokens, Pos);
         JFields := ParseFields(JTokens, Pos);
         JTable := ParseTable(JTokens, Pos);
         JFilters := ParseFilters(JTokens, Pos);
         JOrderByFields := ParseOrderBy(JTokens, Pos);
 
         EndOfQuery(JTokens, Pos);
-
+        JASTNode.Add('Top', Top);
         JASTNode.Add('Fields', JFields);
         JASTNode.Add('Table', JTable);
         JASTNode.Add('Filters', JFilters);
         JASTNode.Add('OrderBy', JOrderByFields);
 
         exit(JASTNode);
+    end;
+
+    local procedure ParseTopClause(JTokens: JsonArray; var Pos: Integer): Integer
+    var
+        TokenValue: Text;
+        TokenType: Enum "Inline Query Token Type";
+        Top: Integer;
+    begin
+        if not PeekToken(JTokens, Pos, TokenValue, TokenType) then
+            exit;
+
+        if UpperCase(TokenValue) <> 'TOP' then
+            exit;
+
+        Pos += 1;
+
+        if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
+            Error(SyntaxErrorErr, 'TOP');
+
+        if not Evaluate(Top, TokenValue) then
+            Error(SyntaxErrorErr, 'TOP');
+
+        exit(Top);
     end;
 
     local procedure EndOfQuery(JTokens: JsonArray; Pos: Integer)
@@ -190,12 +214,12 @@ codeunit 50102 "Inline Query Parser"
         JFields: JsonArray;
     begin
         while (TokenValue = '') or (TokenValue = ',') do begin
-            JFields.Add(ReadField(JTokens, Pos));
+            JFields.Add(ParseField(JTokens, Pos));
 
             if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
                 Error(SyntaxErrorErr, 'FROM');
 
-            if TokenValue = 'FROM' then
+            if UpperCase(TokenValue) = 'FROM' then
                 break;
 
             if UpperCase(TokenValue) <> ',' then
@@ -208,7 +232,7 @@ codeunit 50102 "Inline Query Parser"
         exit(JFields);
     end;
 
-    local procedure ReadField(JTokens: JsonArray; var Pos: Integer): JsonObject
+    local procedure ParseField(JTokens: JsonArray; var Pos: Integer): JsonObject
     var
         TokenValue: Text;
         TokenType: Enum "Inline Query Token Type";

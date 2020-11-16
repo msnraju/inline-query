@@ -110,6 +110,7 @@ codeunit 50101 "Inline Query Impl"
         RecordRef: RecordRef;
         JASTNode: JsonObject;
         JToken: JsonToken;
+        Top: Integer;
     begin
         JASTNode := QueryAsASTNode(QueryText);
         if HasColumnFunctions(JASTNode) then
@@ -117,19 +118,27 @@ codeunit 50101 "Inline Query Impl"
 
         PrepareRecRef(RecordRef, JASTNode);
 
+        if JASTNode.Get('Top', JToken) then
+            Top := JToken.AsValue().AsInteger();
+
         if not JASTNode.Get('Fields', JToken) then
             exit;
 
-        exit(Records2Json(RecordRef, JToken.AsArray()))
+        exit(Records2Json(RecordRef, JToken.AsArray(), Top))
     end;
 
-    local procedure Records2Json(var RecordRef: RecordRef; JFields: JsonArray): JsonArray
+    local procedure Records2Json(var RecordRef: RecordRef; JFields: JsonArray; Top: Integer): JsonArray
     var
         JRecords: JsonArray;
+        Counter: Integer;
     begin
         if RecordRef.FindSet() then
             repeat
+                Counter += 1;
                 JRecords.Add(Record2Json(RecordRef, JFields));
+
+                if (Top <> 0) and (Counter >= Top) then
+                    break;
             until RecordRef.Next() = 0;
 
         exit(JRecords);
