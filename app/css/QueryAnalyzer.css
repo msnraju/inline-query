@@ -1,0 +1,72 @@
+.ag-theme-balham {
+  font-family: "Segoe UI", "Segoe WP", Segoe, device-segoe, Tahoma, Helvetica,
+    Arial, sans-serif !important;
+}
+
+body {
+  font-family: "Segoe UI", "Segoe WP", Segoe, device-segoe, Tahoma, Helvetica,
+    Arial, sans-serif;
+}
+
+.inline-query {
+  position: relative;
+}
+
+.inline-query textarea {
+  font-size: 14px;
+
+  width: calc(100% - 1.35rem);
+  padding: 0.25rem 0.5rem;
+}
+
+.inline-query .query-container {
+  margin: 0;
+  margin-top: 0.5rem;
+}
+
+.inline-query .execute-container {
+  margin-top: 0.5rem;
+  margin-left: auto;
+}
+
+.inline-query label {
+  font-size: 24px;
+  font-weight: 500;
+}
+
+.inline-query .execute-container button {
+  font-weight: 500;
+  padding: 0.25rem 1rem;
+}
+
+.result-type,
+.result-type:focus,
+.result-type:active {
+  position: absolute;
+  top: 0;
+  right: 1rem;
+  padding: 2px 4px;
+  border: 0;
+  cursor: pointer;
+  font-family: "Segoe UI", "Segoe WP", Segoe, device-segoe, Tahoma, Helvetica,
+    Arial, sans-serif;
+  font-size: 14px;
+}
+
+#myGrid {
+  display: none;
+}
+
+#myJson {
+  height: 200px;
+  width: calc(100% - 2px);
+  border: 1px solid #bdc3c7;
+  font-size: 12px;
+  overflow: auto;
+  display: none;
+}
+
+#myError {
+  font-size: 14px;
+  color: #b61717;
+}

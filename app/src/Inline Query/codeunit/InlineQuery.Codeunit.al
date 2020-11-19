@@ -128,4 +128,16 @@ codeunit 50104 "Inline Query"
     begin
         exit(InlineQueryImpl.AsJsonArray(QueryText));
     end;
+
+    /// <summary>
+    /// Executes the Query and return Records as JsonArray
+    /// </summary>
+    /// <param name="QueryText">The inline query text</param>
+    /// <param name="FieldHeaders">The field headers, updated with Field Captions, and Field Names as JsonArray</param>
+    /// <param name="UseNames">Use Names instead of Option Values</param>
+    /// <returns>Records as JsonArray</returns>
+    procedure AsJsonArray(QueryText: Text; FieldHeaders: JsonArray; UseNames: Boolean): JsonArray
+    begin
+        exit(InlineQueryImpl.AsJsonArray(QueryText, FieldHeaders, UseNames));
+    end;
 }

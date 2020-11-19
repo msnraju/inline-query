@@ -54,4 +54,8 @@ enum 50100 "Inline Query Token Type"
     {
         Caption = 'Number';
     }
+    value(14; Star)
+    {
+        Caption = 'Star';
+    }
 }

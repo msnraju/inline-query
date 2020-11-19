@@ -326,4 +326,96 @@ codeunit 50130 "Inline Query Tests"
         // [THEN] Inline Query should return the expected quantity
         Assert.AreEqual(ExpectedValue, ValueFromQuery, StrSubstNo(ValueMisMatchErr, ExpectedValue));
     end;
+
+    [Test]
+    procedure Top2RecordsWithHeadersTest()
+    var
+        InlineQueryTestData: Record "Inline Query Test Data";
+        JExpectedValue: JsonArray;
+        ExpectedValue: Text;
+        JValueFromQuery: JsonArray;
+        ValueFromQuery: Text;
+        RecordRef: RecordRef;
+        JHeaders: JsonArray;
+        QueryText: Label 'SELECT TOP 2 [Boolean Value] AS C1, [Time Value] AS C2, [Date Value] AS C3, [DateTime Value] AS C4, [Integer Value] AS C5, [BigInteger Value] AS C6, [Decimal Value] AS C7, [Code Value] AS C8, [Text Value] AS C9, [Guid Value] AS C10, [Duration Value] AS C11, [RecordId Value] AS C12, [Option Value] AS C13 FROM [Inline Query Test Data] ORDER BY [Integer Value]', Locked = true;
+        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value';
+    begin
+        // [SCENARIO] Inline Query should export TOP 2 records data from the source table to JsonArray with headers
+        // [GIVEN] Inline Query with Json property names
+        InlineQueryTestLibrary.SetupTestData();
+        InlineQueryTestData.SetCurrentKey("Integer Value");
+        InlineQueryTestData.SetRange("Integer Value", 10, 20);
+        JExpectedValue := InlineQueryTestLibrary.DataToJson(InlineQueryTestData);
+        JExpectedValue.WriteTo(ExpectedValue);
+
+        // [WHEN] Executing AsJsonArray method
+        JValueFromQuery := InlineQuery.AsJsonArray(QueryText, JHeaders, false);
+        JValueFromQuery.WriteTo(ValueFromQuery);
+
+        // [THEN] Inline Query should return the expected quantity
+        Assert.AreEqual(13, JHeaders.Count, StrSubstNo(ValueMisMatchErr, 13));
+        Assert.AreEqual(ExpectedValue, ValueFromQuery, StrSubstNo(ValueMisMatchErr, ExpectedValue));
+    end;
+
+    [Test]
+    procedure MultipleAggrFunctionsTest()
+    var
+        InlineQueryTestData: Record "Inline Query Test Data";
+        JExpectedValue: JsonArray;
+        ExpectedValue: Text;
+        JValueFromQuery: JsonArray;
+        ValueFromQuery: Text;
+        RecordRef: RecordRef;
+        JHeaders: JsonArray;
+        QueryText: Label 'SELECT Sum([Integer Value]) AS C5, Sum([BigInteger Value]), Avg([Decimal Value]) AS C7 FROM [Inline Query Test Data]', Locked = true;
+        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value';
+    begin
+        // [SCENARIO] Inline Query should export aggregate values from the source table to JsonArray
+        // [GIVEN] Inline Query with Json property names
+        InlineQueryTestLibrary.SetupTestData();
+        ExpectedValue := '[{"C5":"550","Sum_of_BigInteger_Value":"550","C7":"55.1"}]';
+
+        // [WHEN] Executing AsJsonArray method
+        JValueFromQuery := InlineQuery.AsJsonArray(QueryText);
+        JValueFromQuery.WriteTo(ValueFromQuery);
+
+        // [THEN] Inline Query should return the expected quantity
+        Assert.AreEqual(ExpectedValue, ValueFromQuery, StrSubstNo(ValueMisMatchErr, ExpectedValue));
+    end;
+
+    [Test]
+    procedure AllFieldsFirstRecordTest()
+    var
+        InlineQueryTestData: Record "Inline Query Test Data";
+        JExpectedValue: JsonArray;
+        ExpectedValue: Text;
+        JValueFromQuery: JsonArray;
+        ValueFromQuery: Text;
+        RecordRef: RecordRef;
+        JHeaders: JsonArray;
+        JToken: JsonToken;
+        JRecord: JsonObject;
+        QueryText: Label 'SELECT TOP 1 * FROM [Inline Query Test Data]', Locked = true;
+        ValueMisMatchErr: Label 'Value should be equal to %1', Comment = '%1 = Expected Value';
+    begin
+        // [SCENARIO] Inline Query should export all fields from the source table's first record to JsonArray
+        // [GIVEN] Inline Query with Json property names
+        InlineQueryTestLibrary.SetupTestData();
+        InlineQueryTestData.FindFirst();
+
+        // [WHEN] Executing AsJsonArray method
+        JValueFromQuery := InlineQuery.AsJsonArray(QueryText);
+        JValueFromQuery.Get(0, JToken);
+        JRecord := JToken.AsObject();
+
+        // [THEN] Inline Query should return the expected quantity
+        JRecord.Get('Entry_No_', JToken);
+        Assert.AreEqual(InlineQueryTestData."Entry No.", JToken.AsValue().AsInteger(), StrSubstNo(ValueMisMatchErr, InlineQueryTestData."Entry No."));
+
+        JRecord.Get('Code_Value', JToken);
+        Assert.AreEqual(InlineQueryTestData."Code Value", JToken.AsValue().AsCode(), StrSubstNo(ValueMisMatchErr, InlineQueryTestData."Code Value"));
+
+        JRecord.Get('Text_Value', JToken);
+        Assert.AreEqual(InlineQueryTestData."Text Value", JToken.AsValue().AsText(), StrSubstNo(ValueMisMatchErr, InlineQueryTestData."Text Value"));
+    end;
 }
