@@ -133,8 +133,16 @@ codeunit 50103 "Inline Query Compiler"
         FunctionType: Enum "Inline Query Function Type";
         NewJFieldNode: JsonObject;
     begin
+        JField.Get('Field', JToken);
+        FieldName := JToken.AsValue().AsText();
+
         if JField.Get('IsFunction', JToken) then
             IsFunction := JToken.AsValue().AsBoolean();
+
+        if (not IsFunction) and (FieldName = '*') then begin
+            NewJFieldNode.Add('Field', '*');
+            exit(NewJFieldNode);
+        end;
 
         if IsFunction then begin
             if JField.Get('Function', JToken) then
@@ -160,11 +168,8 @@ codeunit 50103 "Inline Query Compiler"
             end;
         end;
 
-        JField.Get('Field', JToken);
-        if FunctionType <> FunctionType::Count then begin
-            FieldName := JToken.AsValue().AsText();
+        if FunctionType <> FunctionType::Count then
             FieldID := GetFieldID(FieldName, TableID);
-        end;
 
         NewJFieldNode.Add('IsFunction', IsFunction);
         if IsFunction then
@@ -191,7 +196,6 @@ codeunit 50103 "Inline Query Compiler"
 
         exit(NewJFields);
     end;
-
 
     local procedure CompileTable(JTable: JsonObject; var TableID: Integer): JsonObject
     var

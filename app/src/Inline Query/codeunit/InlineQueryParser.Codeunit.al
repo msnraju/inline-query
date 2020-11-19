@@ -220,7 +220,7 @@ codeunit 50102 "Inline Query Parser"
                 Error(SyntaxErrorErr, 'FROM');
 
             if UpperCase(TokenValue) = 'FROM' then
-                break;
+                Break;
 
             if UpperCase(TokenValue) <> ',' then
                 Error(SyntaxErrorErr, 'FROM');

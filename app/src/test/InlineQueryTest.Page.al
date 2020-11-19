@@ -8,77 +8,29 @@ page 50100 "Inline Query Test"
     {
         area(Content)
         {
-            field(QueryType; QueryType)
+            usercontrol(QueryAnalyzerControlAddIn; QueryAnalyzerControlAddIn)
             {
-                ApplicationArea = All;
-                ToolTip = 'Query Type';
-                Caption = 'Qery Type';
-                OptionCaption = 'Variant,RecordRef,JsonArray';
-            }
-            field("Inline Query"; QueryText)
-            {
-                ApplicationArea = All;
-                ToolTip = 'Specify the Query Text';
-                Caption = 'Inline Query';
-            }
-            field("Result"; Result)
-            {
-                Editable = false;
-                MultiLine = true;
-                ApplicationArea = All;
-                ToolTip = 'The Query Result';
-                Caption = 'Result';
-            }
-        }
-    }
-
-    actions
-    {
-        area(Processing)
-        {
-            action("Execute")
-            {
-                ApplicationArea = All;
-                Caption = 'Execute';
-                ToolTip = 'Execute the Query';
-                Image = Action;
-                Promoted = true;
-                PromotedOnly = true;
-                PromotedCategory = Process;
-                PromotedIsBig = true;
-
-                trigger OnAction()
-                var
-                    RecordRef: RecordRef;
-                    JArray: JsonArray;
-                    ValueVariant: Variant;
+                trigger ControlAddInReady()
                 begin
-                    Result := '';
-                    case QueryType of
-                        QueryType::Variant:
-                            begin
-                                InlineQuery.AsVariant(QueryText, ValueVariant);
-                                Result := Format(ValueVariant);
-                            end;
-                        QueryType::JsonArray:
-                            begin
-                                JArray := InlineQuery.AsJsonArray(QueryText);
-                                JArray.WriteTo(Result);
-                            end;
-                        QueryType::RecordRef:
-                            begin
-                                InlineQuery.AsRecord(QueryText, RecordRef);
-                                Result := RecordRef.GetView(true);
-                            end;
-                    end;
+                end;
+
+                trigger ExecuteQuery(QueryText: Text)
+                begin
+                    if not ExecuteQuery(QueryText) then
+                        CurrPage.QueryAnalyzerControlAddIn.UpdateError(QueryText, GetLastErrorText);
                 end;
             }
         }
     }
 
+    [TryFunction]
+    local procedure ExecuteQuery(QueryText: Text)
     var
         InlineQuery: Codeunit "Inline Query";
-        QueryType: Option Variant,RecordRef,JsonArray;
-        QueryText: Text;
-        Result: Text;
+        JRows: JsonArray;
+        JFieldHeaders: JsonArray;
+    begin
+        JRows := InlineQuery.AsJsonArray(QueryText, JFieldHeaders, true);
+        CurrPage.QueryAnalyzerControlAddIn.UpdateResults(QueryText, JFieldHeaders, JRows);
+    end;
 }

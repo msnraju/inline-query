@@ -32,7 +32,7 @@ codeunit 50100 "Inline Query Tokenizer"
         Chr := QueryText[Pos];
 
         // Read white spaces
-        while Chr = ' ' do begin
+        while Chr in [9, 10, 13, 32] do begin
             Pos += 1;
             if Pos > Len then
                 exit;
@@ -56,6 +56,12 @@ codeunit 50100 "Inline Query Tokenizer"
         if Chr = '=' then begin
             Pos += 1;
             exit(GetToken(Chr, "Inline Query Token Type"::"Equal To"));
+        end;
+
+        // Equals
+        if Chr = '*' then begin
+            Pos += 1;
+            exit(GetToken(Chr, "Inline Query Token Type"::Star));
         end;
 
         // Open Parentheses 
