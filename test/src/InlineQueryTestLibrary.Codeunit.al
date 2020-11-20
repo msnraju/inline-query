@@ -63,9 +63,9 @@ codeunit 50140 "Inline Query Test - Library"
         TxtValue: Text[100])
     var
         InlineQueryTestData: Record "Inline Query Test Data";
-        CompanyInfo: Record "Company Information";
+        CompanyInformation: Record "Company Information";
     begin
-        CompanyInfo.Get();
+        CompanyInformation.Get();
 
         InlineQueryTestData.Init();
         InlineQueryTestData."Boolean Value" := BoolValue;
@@ -80,7 +80,7 @@ codeunit 50140 "Inline Query Test - Library"
 
         InlineQueryTestData."Guid Value" := CreateGuid();
         InlineQueryTestData."Duration Value" := 50000;
-        InlineQueryTestData."RecordId Value" := CompanyInfo.RecordId;
+        InlineQueryTestData."RecordId Value" := CompanyInformation.RecordId;
         InlineQueryTestData."Option Value" := InlineQueryTestData."Option Value"::One;
         InlineQueryTestData.Insert();
     end;
