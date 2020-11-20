@@ -1,4 +1,4 @@
-page 50100 "Inline Query Test"
+page 50100 "Inline Query Analyzer"
 {
     PageType = Card;
     ApplicationArea = All;

@@ -56,5 +56,11 @@ table 50100 "Inline Query Test Data"
         {
             Clustered = true;
         }
+        key(K2; "Integer Value") { }
+        key(K3; "Decimal Value") { }
+        key(K4; "BigInteger Value") { }
+        key(K5; "Date Value") { }
+        key(K6; "Time Value") { }
+        key(K7; "DateTime Value") { }
     }
 }
