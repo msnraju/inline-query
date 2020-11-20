@@ -599,7 +599,9 @@ codeunit 50101 "Inline Query Impl"
 
         JField.Get('Field', JToken);
         FieldID := JToken.AsValue().AsInteger();
-        RecordRef.AddLoadFields(FieldID);
+
+        if not IsFunction then
+            RecordRef.AddLoadFields(FieldID);
         FieldRef := RecordRef.Field(FieldID);
 
         JField.Get('Name', JToken);
