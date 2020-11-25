@@ -5,6 +5,8 @@ codeunit 50100 "Inline Query Tokenizer"
     var
         IllegalCharacterErr: Label 'Syntax error, Illegal character ''%1'' at position %2.', Comment = '%1 = Character, %2 = Position';
         SyntaxErrorErr: Label 'Syntax error, %1 expected.', Comment = '%1 = Character';
+        TokenValueTxt: Label 'Value', Locked = true;
+        TokenTypeTxt: Label 'Type', Locked = true;
 
     procedure Tokenize(QueryText: Text): JsonArray;
     var
@@ -20,6 +22,67 @@ codeunit 50100 "Inline Query Tokenizer"
             JTokens.Add(ReadToken(QueryText, Pos));
 
         exit(JTokens);
+    end;
+
+    procedure PeekToken(
+        JTokens: JsonArray;
+        Pos: Integer;
+        var TokenValue: Text;
+        var TokenType: Enum "Inline Query Token Type";
+        EndOfTokensError: Text): Boolean
+    begin
+        if not PeekToken(JTokens, Pos, TokenValue, TokenType) then
+            Error(EndOfTokensError);
+
+        exit(true);
+    end;
+
+    procedure PeekToken(
+        JTokens: JsonArray;
+        Pos: Integer;
+        var TokenValue: Text;
+        var TokenType: Enum "Inline Query Token Type"): Boolean
+    var
+        JToken: JsonToken;
+    begin
+        if Pos >= JTokens.Count() then
+            exit(false);
+
+        JTokens.Get(Pos, JToken);
+        ReadToken(JToken.AsObject(), TokenValue, TokenType);
+
+        exit(true);
+    end;
+
+    procedure ReadToken(
+        JTokens: JsonArray;
+        var Pos: Integer;
+        var TokenValue: Text;
+        var TokenType: Enum "Inline Query Token Type";
+        EndOfTokensError: Text): Boolean
+    begin
+        if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
+            Error(EndOfTokensError);
+
+        exit(true);
+    end;
+
+    procedure ReadToken(
+        JTokens: JsonArray;
+        var Pos: Integer;
+        var TokenValue: Text;
+        var TokenType: Enum "Inline Query Token Type"): Boolean
+    var
+        JToken: JsonToken;
+    begin
+        if Pos >= JTokens.Count() then
+            exit(false);
+
+        JTokens.Get(Pos, JToken);
+        ReadToken(JToken.AsObject(), TokenValue, TokenType);
+        Pos += 1;
+
+        exit(true);
     end;
 
     local procedure ReadToken(QueryText: Text; var Pos: Integer): JsonObject
@@ -193,8 +256,22 @@ codeunit 50100 "Inline Query Tokenizer"
     var
         JObject: JsonObject;
     begin
-        JObject.Add('Value', TokenValue);
-        JObject.Add('Type', TokenType.AsInteger());
+        JObject.Add(TokenValueTxt, TokenValue);
+        JObject.Add(TokenTypeTxt, TokenType.AsInteger());
         exit(JObject);
+    end;
+
+    local procedure ReadToken(
+        TokenObject: JsonObject;
+        var TokenValue: Text;
+        var TokenType: Enum "Inline Query Token Type")
+    var
+        JToken: JsonToken;
+    begin
+        if TokenObject.Get(TokenValueTxt, JToken) then
+            TokenValue := JToken.AsValue().AsText();
+
+        if TokenObject.Get(TokenTypeTxt, JToken) then
+            TokenType := "Inline Query Token Type".FromInteger(JToken.AsValue().AsInteger());
     end;
 }

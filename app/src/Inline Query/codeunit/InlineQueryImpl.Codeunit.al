@@ -3,14 +3,14 @@ codeunit 50101 "Inline Query Impl"
     Access = Internal;
 
     var
+        InlineQueryJsonHelper: Codeunit "Inline Query Json Helper";
         InlineQueryTokenizer: Codeunit "Inline Query Tokenizer";
         InlineQueryParser: Codeunit "Inline Query Parser";
         InlineQueryCompiler: Codeunit "Inline Query Compiler";
         EmptyQueryErr: Label 'Query should not be empty.';
         FunctionExpectedErr: Label 'Function expected.';
         SingleFunctionExpectedErr: Label 'A single function expected.';
-        AggregateFunctionsErr: Label 'Cannot use aggregate columns in this method.';
-        SortingLbl: Label 'SORTING(%1)', Locked = true, Comment = '%1 = Field';
+        SortingTxt: Label 'SORTING(%1)', Locked = true, Comment = '%1 = Field';
         SpecialCharsTxt: Label ' ~!@#$%^&*()-+={[}]|\:;"''<,>.?/', Locked = true;
         AggregateExprExpectedErr: Label 'Aggregate expression expected for Field %1', Comment = '%1 = Field Name';
 
@@ -89,22 +89,20 @@ codeunit 50101 "Inline Query Impl"
     procedure AsVariant(QueryText: Text; var ValueVariant: Variant)
     var
         RecordRef: RecordRef;
-        JASTNode: JsonObject;
+        JQueryNode: JsonObject;
     begin
-        JASTNode := QueryAsASTNode(QueryText);
-        PrepareRecRef(RecordRef, JASTNode);
-        GetFunctionValue(RecordRef, JASTNode, ValueVariant);
+        JQueryNode := Compile(QueryText);
+        PrepareRecRef(RecordRef, JQueryNode);
+
+        GetFunctionValue(RecordRef, JQueryNode, ValueVariant);
     end;
 
     procedure AsRecord(QueryText: Text; var RecordRef: RecordRef)
     var
-        JASTNode: JsonObject;
+        JQueryNode: JsonObject;
     begin
-        JASTNode := QueryAsASTNode(QueryText);
-        if HasColumnFunctions(JASTNode) then
-            Error(AggregateFunctionsErr);
-
-        PrepareRecRef(RecordRef, JASTNode);
+        JQueryNode := Compile(QueryText);
+        PrepareRecRef(RecordRef, JQueryNode);
     end;
 
     procedure AsJsonArray(QueryText: Text): JsonArray
@@ -117,41 +115,45 @@ codeunit 50101 "Inline Query Impl"
     procedure AsJsonArray(QueryText: Text; JFieldHeaders: JsonArray; UseNames: Boolean): JsonArray
     var
         RecordRef: RecordRef;
-        JASTNode: JsonObject;
-        JToken: JsonToken;
+        JQueryNode: JsonObject;
+        JFields: JsonArray;
+        JTable: JsonObject;
+        JFilters: JsonArray;
+        JOrderByFields: JsonArray;
         Top: Integer;
     begin
-        JASTNode := QueryAsASTNode(QueryText);
-        if HasColumnFunctions(JASTNode) then
-            exit(FunctionValuesAsJson(JASTNode, JFieldHeaders));
+        JQueryNode := Compile(QueryText);
+        InlineQueryJsonHelper.ReadSelectQuery(JQueryNode, Top, JFields, JTable, JFilters, JOrderByFields);
 
-        PrepareRecRef(RecordRef, JASTNode, JFieldHeaders);
+        if HasColumnFunctions(JFields) then
+            exit(FunctionValuesAsJson(JQueryNode, JOrderByFields, JFieldHeaders));
 
-        if JASTNode.Get('Top', JToken) then
-            Top := JToken.AsValue().AsInteger();
-
-        if not JASTNode.Get('Fields', JToken) then
+        PrepareRecRef(RecordRef, JQueryNode, JFieldHeaders);
+        if JFields.Count() = 0 then
             exit;
 
-        exit(Records2Json(RecordRef, JToken.AsArray(), Top, UseNames))
+        exit(Records2Json(RecordRef, JFields, Top, UseNames))
     end;
 
-    local procedure FunctionValuesAsJson(JASTNode: JsonObject; JFieldHeaders: JsonArray): JsonArray
+    local procedure FunctionValuesAsJson(JQueryNode: JsonObject; JOrderByFields: JsonArray; JFieldHeaders: JsonArray): JsonArray
     var
         RecordRef: RecordRef;
         JFieldHeaders2: JsonArray;
         JToken: JsonToken;
         JFields: JsonArray;
+        JTable: JsonObject;
+        JFilters: JsonArray;
         JRecords: JsonArray;
         JRecord: JsonObject;
         JField: JsonObject;
+        Top: Integer;
     begin
-        PrepareRecRef(RecordRef, JASTNode, JFieldHeaders2);
-        JASTNode.Get('Fields', JToken);
-        JFields := JToken.AsArray();
+        PrepareRecRef(RecordRef, JQueryNode, JFieldHeaders2);
+
+        InlineQueryJsonHelper.ReadSelectQuery(JQueryNode, Top, JFields, JTable, JFilters, JOrderByFields);
         foreach JToken in JFields do begin
             JField := JToken.AsObject();
-            FunctionValueAsJson(RecordRef, JASTNode, JRecord, JField, JFieldHeaders);
+            FunctionValueAsJson(RecordRef, JOrderByFields, JRecord, JField, JFieldHeaders);
         end;
 
         JRecords.Add(JRecord);
@@ -160,47 +162,34 @@ codeunit 50101 "Inline Query Impl"
 
     local procedure FunctionValueAsJson(
         RecordRef: RecordRef;
-        JASTNode: JsonObject;
+        JOrderByFields: JsonArray;
         JRecord: JsonObject;
         JField: JsonObject;
         JFieldHeaders: JsonArray)
     var
         FieldRef: FieldRef;
-        JToken: JsonToken;
         ValueVariant: Variant;
-        JFieldHeader: JsonObject;
-        FieldID: Integer;
-        FieldName: Text;
         IsFunction: Boolean;
+        FieldID: Integer;
+        AliasName: Text;
+        FieldName: Text;
         FunctionType: Enum "Inline Query Function Type";
     begin
-        AggregateFieldValue(RecordRef, JASTNode, JField, ValueVariant);
-        JField.Get('Name', JToken);
-        FieldName := JToken.AsValue().AsText();
+        AggregateFieldValue(RecordRef, JOrderByFields, JField, ValueVariant);
+        InlineQueryJsonHelper.ReadSelectField(JField, FieldID, IsFunction, FunctionType, AliasName);
 
-        JField.Get('Field', JToken);
-        FieldID := JToken.AsValue().AsInteger();
-
-        JField.Get('IsFunction', JToken);
-        IsFunction := JToken.AsValue().AsBoolean();
         if not IsFunction then
-            Error(AggregateExprExpectedErr, FieldName);
+            Error(AggregateExprExpectedErr, AliasName);
 
-        JField.Get('Function', JToken);
-        FunctionType := "Inline Query Function Type".FromInteger(JToken.AsValue().AsInteger());
-
-        if FieldName = '' then
+        if AliasName = '' then
             if FieldID <> 0 then begin
                 FieldRef := RecordRef.Field(FieldID);
-                FieldName := Format(FunctionType) + ' of ' + FieldRef.Name;
+                AliasName := Format(FunctionType) + ' of ' + FieldRef.Name;
             end else
-                FieldName := Format(FunctionType);
+                AliasName := Format(FunctionType);
 
-        JFieldHeader.Add('Caption', FieldName);
-        FieldName := ConvertStr(FieldName, SpecialCharsTxt, PadStr('', StrLen(SpecialCharsTxt), '_'));
-        JFieldHeader.Add('Name', FieldName);
-        JFieldHeaders.Add(JFieldHeader);
-
+        FieldName := ConvertStr(AliasName, SpecialCharsTxt, PadStr('', StrLen(SpecialCharsTxt), '_'));
+        JFieldHeaders.Add(InlineQueryJsonHelper.AsGridHeader(AliasName, FieldName));
         JRecord.Add(FieldName, Format(ValueVariant));
     end;
 
@@ -230,17 +219,15 @@ codeunit 50101 "Inline Query Impl"
         JField: JsonObject;
         FieldID: Integer;
         IsFunction: Boolean;
-        FieldName: Text;
+        AllFields: Boolean;
+        AliasName: Text;
+        FunctionType: Enum "Inline Query Function Type";
     begin
         foreach JToken in JFields do begin
             JField := JToken.AsObject();
-            JField.Get('Field', JToken);
-            FieldName := JToken.AsValue().AsText();
+            AllFields := InlineQueryJsonHelper.ReadSelectAllFields(JField);
 
-            if JField.Get('IsFunction', JToken) then
-                IsFunction := JToken.AsValue().AsBoolean();
-
-            if (not IsFunction) and (FieldName = '*') then begin
+            if AllFields then begin
                 Field.SetRange(TableNo, RecordRef.Number);
                 Field.SetFilter(Class, '%1|%2', Field.Class::Normal, Field.Class::FlowField);
                 Field.SetFilter(Type, '<>%1&<>%2&<>%3&<>%4',
@@ -255,16 +242,13 @@ codeunit 50101 "Inline Query Impl"
                         AddFieldProperty(FieldRef, FieldRef.Name, JRecord, UseNames);
                     until Field.Next() = 0;
             end else begin
-                JField.Get('Field', JToken);
-                FieldID := JToken.AsValue().AsInteger();
+                InlineQueryJsonHelper.ReadSelectField(JField, FieldID, IsFunction, FunctionType, AliasName);
                 FieldRef := RecordRef.Field(FieldID);
 
-                JField.Get('Name', JToken);
-                FieldName := JToken.AsValue().AsText();
-                if FieldName = '' then
-                    FieldName := FieldRef.Name;
+                if AliasName = '' then
+                    AliasName := FieldRef.Name;
 
-                AddFieldProperty(FieldRef, FieldName, JRecord, UseNames);
+                AddFieldProperty(FieldRef, AliasName, JRecord, UseNames);
             end;
         end;
 
@@ -280,7 +264,7 @@ codeunit 50101 "Inline Query Impl"
         AddJsonProperty(JRecord, FieldName, FieldRef, UseNames);
     end;
 
-    local procedure AddJsonProperty(JRecord: JsonObject; Name: Text; FieldRef: FieldRef; UseNames: Boolean)
+    local procedure AddJsonProperty(JRecord: JsonObject; FieldName: Text; FieldRef: FieldRef; UseNames: Boolean)
     var
         TextValue: Text;
         CodeValue: Code[2048];
@@ -295,7 +279,7 @@ codeunit 50101 "Inline Query Impl"
         OptionValue: Option;
         TimeValue: Time;
     begin
-        if JRecord.Contains(Name) then
+        if JRecord.Contains(FieldName) then
             exit;
 
         if FieldRef.Class = FieldRef.Class::FlowField then
@@ -306,167 +290,165 @@ codeunit 50101 "Inline Query Impl"
                 begin
                     TextValue := FieldRef.Value;
 
-                    JRecord.Add(Name, TextValue);
+                    JRecord.Add(FieldName, TextValue);
                 end;
             FieldRef.Type::Code:
                 begin
                     CodeValue := FieldRef.Value;
-                    JRecord.Add(Name, CodeValue);
+                    JRecord.Add(FieldName, CodeValue);
                 end;
             FieldRef.Type::BigInteger:
                 begin
                     BigIntegerValue := FieldRef.Value;
-                    JRecord.Add(Name, BigIntegerValue);
+                    JRecord.Add(FieldName, BigIntegerValue);
                 end;
             FieldRef.Type::Boolean:
                 begin
                     BooleanValue := FieldRef.Value;
-                    JRecord.Add(Name, BooleanValue);
+                    JRecord.Add(FieldName, BooleanValue);
                 end;
             FieldRef.Type::Date:
                 begin
                     DateValue := FieldRef.Value;
-                    JRecord.Add(Name, DateValue);
+                    JRecord.Add(FieldName, DateValue);
                 end;
             FieldRef.Type::DateTime:
                 begin
                     DateTimeValue := FieldRef.Value;
-                    JRecord.Add(Name, DateTimeValue);
+                    JRecord.Add(FieldName, DateTimeValue);
                 end;
             FieldRef.Type::Decimal:
                 begin
                     DecimalValue := FieldRef.Value;
-                    JRecord.Add(Name, DecimalValue);
+                    JRecord.Add(FieldName, DecimalValue);
                 end;
             FieldRef.Type::Duration:
                 begin
                     DurationValue := FieldRef.Value;
-                    JRecord.Add(Name, DurationValue);
+                    JRecord.Add(FieldName, DurationValue);
                 end;
             FieldRef.Type::Guid:
                 begin
                     GuidValue := FieldRef.Value;
-                    JRecord.Add(Name, GuidValue);
+                    JRecord.Add(FieldName, GuidValue);
                 end;
             FieldRef.Type::Integer:
                 begin
                     IntegerValue := FieldRef.Value;
-                    JRecord.Add(Name, IntegerValue);
+                    JRecord.Add(FieldName, IntegerValue);
                 end;
             FieldRef.Type::Option:
                 if UseNames then
-                    JRecord.Add(Name, Format(FieldRef.Value))
+                    JRecord.Add(FieldName, Format(FieldRef.Value))
                 else begin
                     OptionValue := FieldRef.Value;
-                    JRecord.Add(Name, OptionValue);
+                    JRecord.Add(FieldName, OptionValue);
                 end;
             FieldRef.Type::Time:
                 begin
                     TimeValue := FieldRef.Value;
-                    JRecord.Add(Name, TimeValue);
+                    JRecord.Add(FieldName, TimeValue);
                 end;
             FieldRef.Type::Blob,
             FieldRef.Type::Media,
             FieldRef.Type::MediaSet,
             FieldRef.Type::RecordId,
             FieldRef.Type::TableFilter:
-                JRecord.Add(Name, Format(FieldRef.Value, 0, 9));
+                JRecord.Add(FieldName, Format(FieldRef.Value, 0, 9));
             else
-                JRecord.Add(Name, Format(FieldRef.Value, 0, 9));
+                JRecord.Add(FieldName, Format(FieldRef.Value, 0, 9));
         end;
     end;
 
-    local procedure HasColumnFunctions(JASTNode: JsonObject): Boolean
+    local procedure HasColumnFunctions(JFields: JsonArray): Boolean
     var
         JToken: JsonToken;
         JField: JsonObject;
-        JFields: JsonArray;
     begin
-        if not JASTNode.Get('Fields', JToken) then
+        if JFields.Count() = 0 then
             exit;
 
-        JFields := JToken.AsArray();
         foreach JToken in JFields do begin
             JField := JToken.AsObject();
-            if JField.Get('IsFunction', JToken) then
-                if JToken.AsValue().AsBoolean() then
-                    exit(true);
+            if InlineQueryJsonHelper.ReadSelectFieldIsFunction(JField) then
+                exit(true);
         end;
     end;
 
-    local procedure QueryAsASTNode(QueryText: Text): JsonObject
+    local procedure Compile(QueryText: Text): JsonObject
     var
         JTokens: JsonArray;
-        JASTNode: JsonObject;
-        NewJASTNode: JsonObject;
+        JQueryNode: JsonObject;
+        JNewQueryNode: JsonObject;
     begin
         QueryText := DelChr(QueryText, '<>', ' ');
         if StrLen(QueryText) = 0 then
             Error(EmptyQueryErr);
 
         JTokens := InlineQueryTokenizer.Tokenize(QueryText);
-        JASTNode := InlineQueryParser.Parse(JTokens);
-        NewJASTNode := InlineQueryCompiler.Compile(JASTNode);
+        JQueryNode := InlineQueryParser.Parse(QueryText, JTokens);
+        JNewQueryNode := InlineQueryCompiler.Compile(JQueryNode);
 
-        exit(NewJASTNode);
+        exit(JNewQueryNode);
     end;
 
-    local procedure GetFunctionValue(var RecordRef: RecordRef; JASTNode: JsonObject; var ValueVariant: Variant)
+    local procedure GetFunctionValue(var RecordRef: RecordRef; JQueryNode: JsonObject; var ValueVariant: Variant)
     var
+        Top: Integer;
         JToken: JsonToken;
         JFields: JsonArray;
+        JTable: JsonObject;
+        JFilters: JsonArray;
+        JOrderByFields: JsonArray;
         JField: JsonObject;
     begin
-        JASTNode.Get('Fields', JToken);
-        JFields := JToken.AsArray();
+        InlineQueryJsonHelper.ReadSelectQuery(JQueryNode, Top, JFields, JTable, JFilters, JOrderByFields);
+
         if JFields.Count() <> 1 then
             Error(SingleFunctionExpectedErr);
 
         JFields.Get(0, JToken);
         JField := JToken.AsObject();
-        AggregateFieldValue(RecordRef, JASTNode, JField, ValueVariant);
+        AggregateFieldValue(RecordRef, JOrderByFields, JField, ValueVariant);
     end;
 
     local procedure AggregateFieldValue(
         var RecordRef: RecordRef;
-        JASTNode: JsonObject;
+        JOrderByFields: JsonArray;
         JField: JsonObject;
         var ValueVariant: Variant)
     var
         FieldRef: FieldRef;
-        JToken: JsonToken;
         IsFunction: Boolean;
         FieldID: Integer;
         NumberValue: Decimal;
         RecCount: Integer;
+        AliasName: Text;
         FunctionType: Enum "Inline Query Function Type";
     begin
-        JField.Get('IsFunction', JToken);
-        IsFunction := JToken.AsValue().AsBoolean();
+        InlineQueryJsonHelper.ReadSelectField(JField, FieldID, IsFunction, FunctionType, AliasName);
 
         if not IsFunction then
             Error(FunctionExpectedErr);
 
-        JField.Get('Field', JToken);
-        FieldID := JToken.AsValue().AsInteger();
-
         FieldRef := RecordRef.Field(FieldID);
-
-        JField.Get('Function', JToken);
-        FunctionType := "Inline Query Function Type".FromInteger(JToken.AsValue().AsInteger());
 
         case FunctionType of
             FunctionType::Count:
                 ValueVariant := RecordRef.Count();
             FunctionType::Min:
                 begin
-                    SetOrderBy(JASTNode, RecordRef, FieldRef.Name);
+                    if JOrderByFields.Count() = 0 then
+                        SetOrderBy(RecordRef, FieldRef.Name);
+
                     if RecordRef.FindFirst() then
                         ValueVariant := FieldRef.Value;
                 end;
             FunctionType::Max:
                 begin
-                    SetOrderBy(JASTNode, RecordRef, FieldRef.Name);
+                    if JOrderByFields.Count() = 0 then
+                        SetOrderBy(RecordRef, FieldRef.Name);
+
                     if RecordRef.FindLast() then
                         ValueVariant := FieldRef.Value;
                 end;
@@ -500,28 +482,27 @@ codeunit 50101 "Inline Query Impl"
         end;
     end;
 
-    local procedure PrepareRecRef(var RecordRef: RecordRef; JASTNode: JsonObject)
+    local procedure PrepareRecRef(var RecordRef: RecordRef; JQueryNode: JsonObject)
     var
         JFieldHeaders: JsonArray;
     begin
-        PrepareRecRef(RecordRef, JASTNode, JFieldHeaders);
+        PrepareRecRef(RecordRef, JQueryNode, JFieldHeaders);
     end;
 
-    local procedure PrepareRecRef(var RecordRef: RecordRef; JASTNode: JsonObject; JFieldHeaders: JsonArray)
+    local procedure PrepareRecRef(var RecordRef: RecordRef; JQueryNode: JsonObject; JFieldHeaders: JsonArray)
     var
-        JToken: JsonToken;
+        Top: Integer;
+        JFields: JsonArray;
+        JTable: JsonObject;
+        JFilters: JsonArray;
+        JOrderByFields: JsonArray;
     begin
-        JASTNode.Get('Table', JToken);
-        OpenTable(RecordRef, JToken.AsObject());
+        InlineQueryJsonHelper.ReadSelectQuery(JQueryNode, Top, JFields, JTable, JFilters, JOrderByFields);
+        OpenTable(RecordRef, JTable);
 
-        JASTNode.Get('Fields', JToken);
-        AddLoadFields(RecordRef, JToken.AsArray(), JFieldHeaders);
-
-        if JASTNode.Get('OrderBy', JToken) then
-            ApplyOrderBy(RecordRef, JToken.AsArray());
-
-        JASTNode.Get('Filters', JToken);
-        ApplyFilters(RecordRef, JToken.AsArray());
+        AddLoadFields(RecordRef, JFields, JFieldHeaders);
+        ApplyOrderBy(RecordRef, JOrderByFields);
+        ApplyFilters(RecordRef, JFilters);
     end;
 
     local procedure AddAllFieldHeaders(var RecordRef: RecordRef; JFieldHeaders: JsonArray)
@@ -547,17 +528,12 @@ codeunit 50101 "Inline Query Impl"
     local procedure OpenTable(var RecordRef: RecordRef; JTable: JsonObject)
     var
         TableID: Integer;
-        CompanyNameValue: Text;
-        JToken: JsonToken;
+        CompanyName: Text;
     begin
-        JTable.Get('Table', JToken);
-        TableID := JToken.AsValue().AsInteger();
+        InlineQueryJsonHelper.ReadSourceTable(JTable, TableID, CompanyName);
 
-        if JTable.Get('Company', JToken) then
-            CompanyNameValue := JToken.AsValue().AsText();
-
-        if CompanyNameValue <> '' then
-            RecordRef.Open(TableID, false, CompanyNameValue)
+        if CompanyName <> '' then
+            RecordRef.Open(TableID, false, CompanyName)
         else
             RecordRef.Open(TableID)
     end;
@@ -573,40 +549,26 @@ codeunit 50101 "Inline Query Impl"
     local procedure AddLoadField(var RecordRef: RecordRef; JField: JsonObject; JFieldHeaders: JsonArray)
     var
         FieldRef: FieldRef;
-        JToken: JsonToken;
         FieldID: Integer;
         FieldName: Text;
         IsFunction: Boolean;
+        AllFields: Boolean;
         FunctionType: Enum "Inline Query Function Type";
     begin
-        JField.Get('Field', JToken);
-        FieldName := JToken.AsValue().AsText();
-
-        if JField.Get('IsFunction', JToken) then
-            IsFunction := JToken.AsValue().AsBoolean();
-
-        if (not IsFunction) and (FieldName = '*') then begin
+        AllFields := InlineQueryJsonHelper.ReadSelectAllFields(JField);
+        if AllFields then begin
             AddAllFieldHeaders(RecordRef, JFieldHeaders);
             exit;
         end;
 
-        if IsFunction then begin
-            JField.Get('Function', JToken);
-            FunctionType := "Inline Query Function Type".FromInteger(JToken.AsValue().AsInteger());
-            if FunctionType = FunctionType::Count then
-                exit;
-        end;
-
-        JField.Get('Field', JToken);
-        FieldID := JToken.AsValue().AsInteger();
+        InlineQueryJsonHelper.ReadSelectField(JField, FieldID, IsFunction, FunctionType, FieldName);
+        if FunctionType = FunctionType::Count then
+            exit;
 
         if not IsFunction then
             RecordRef.AddLoadFields(FieldID);
+
         FieldRef := RecordRef.Field(FieldID);
-
-        JField.Get('Name', JToken);
-        FieldName := JToken.AsValue().AsText();
-
         JFieldHeaders.Add(GetFieldHeader(FieldRef, FieldName));
     end;
 
@@ -637,19 +599,11 @@ codeunit 50101 "Inline Query Impl"
     local procedure ApplyFilter(var RecordRef: RecordRef; JFilter: JsonObject)
     var
         FieldRef: FieldRef;
-        JToken: JsonToken;
         FieldID: Integer;
         FilterValue: Text;
         OperatorType: Enum "Inline Query Operator Type";
     begin
-        JFilter.Get('Field', JToken);
-        FieldID := JToken.AsValue().AsInteger();
-
-        JFilter.Get('Operator', JToken);
-        OperatorType := "Inline Query Operator Type".FromInteger(JToken.AsValue().AsInteger());
-
-        JFilter.Get('Filter', JToken);
-        FilterValue := JToken.AsValue().AsText();
+        InlineQueryJsonHelper.ReadFilter(JFilter, FieldID, OperatorType, FilterValue);
 
         FieldRef := RecordRef.Field(FieldID);
         case OperatorType of
@@ -688,21 +642,13 @@ codeunit 50101 "Inline Query Impl"
                 TableKey += ',' + FieldRef.Name;
         end;
 
-        RecordRef.SetView(StrSubstNo(SortingLbl, TableKey));
+        RecordRef.SetView(StrSubstNo(SortingTxt, TableKey));
     end;
 
-    local procedure SetOrderBy(JASTNode: JsonObject; var RecordRef: RecordRef; FieldName: Text)
-    var
-        JToken: JsonToken;
+    local procedure SetOrderBy(var RecordRef: RecordRef; FieldName: Text)
     begin
-        if not JASTNode.Get('OrderBy', JToken) then
-            exit;
-
-        if JToken.AsArray().Count() > 0 then
-            exit;
-
         RecordRef.FilterGroup := 2;
-        RecordRef.SetView(StrSubstNo(SortingLbl, FieldName));
+        RecordRef.SetView(StrSubstNo(SortingTxt, FieldName));
         RecordRef.FilterGroup := 0;
     end;
 }
