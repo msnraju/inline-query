@@ -3,43 +3,66 @@ codeunit 50103 "Inline Query Compiler"
     Access = Internal;
 
     var
-        ObjectNotFoundErr: Label '''%1'' %2 not found.', Comment = '%1 = Object Name, %2 = Object Type';
-        InvalidOperatorErr: Label 'Syntax error, Invalid operator %1.', Comment = '%1 = Operator';
-        InvalidFunctionErr: Label 'Syntax error, Invalid function ''%1''.', Comment = '%1 = Function';
+        InlineQueryJsonHelper: Codeunit "Inline Query Json Helper";
+        InvalidFieldNameErr: Label 'Invalid field name ''%1''.', Comment = '%1 = Field Name';
+        InvalidTableNameErr: Label 'Invalid table name ''%1''.', Comment = '%1 = Table Name';
+        InvalidCompanyNameErr: Label 'Invalid company name ''%1''.', Comment = '%1 = Table Name';
+        IncorrectSyntaxErr: Label 'Incorrect syntax near ''%1''.', Comment = '%1 = Token Value';
+        NotImplementedErr: Label 'Query type ''%1'' not implemented.', Comment = '%1 = Query Type';
 
-    procedure Compile(JASTNode: JsonObject): JsonObject
+    procedure Compile(JQueryNode: JsonObject): JsonObject
     var
-        TableID: Integer;
-        JToken: JsonToken;
+        QueryType: Enum "Inline Query Type";
+    begin
+        QueryType := InlineQueryJsonHelper.GetQueryType(JQueryNode);
+        case QueryType of
+            QueryType::Select:
+                exit(CompileSelectQuery(JQueryNode));
+            QueryType::Delete:
+                exit(CompileDeleteQuery(JQueryNode));
+            else
+                Error(NotImplementedErr, QueryType);
+        end;
+    end;
+
+    local procedure CompileSelectQuery(JQueryNode: JsonObject): JsonObject
+    var
+        Top: Integer;
+        JParseTable: JsonObject;
+        JParseFields: JsonArray;
+        JParseFilters: JsonArray;
+        JParseOrderByFields: JsonArray;
         JTable: JsonObject;
         JFields: JsonArray;
         JFilters: JsonArray;
         JOrderByFields: JsonArray;
-        NewJASTNode: JsonObject;
-        Top: Integer;
+        TableID: Integer;
     begin
-        if JASTNode.Get('Table', JToken) then
-            JTable := CompileTable(JToken.AsObject(), TableID);
+        InlineQueryJsonHelper.ReadSelectQuery(JQueryNode, Top, JParseFields, JParseTable, JParseFilters, JParseOrderByFields);
 
-        if JASTNode.Get('Top', JToken) then
-            Top := JToken.AsValue().AsInteger();
+        JTable := CompileTable(JParseTable, TableID);
+        JFields := CompileFields(JParseFields, TableID);
+        JFilters := CompileFilters(JParseFilters, TableID);
+        JOrderByFields := CompileOrderByFields(JParseOrderByFields, TableID);
 
-        if JASTNode.Get('Fields', JToken) then
-            JFields := CompileFields(JToken.AsArray(), TableID);
+        exit(InlineQueryJsonHelper.AsSelectQuery(Top, JFields, JTable, JFilters, JOrderByFields));
+    end;
 
-        if JASTNode.Get('Filters', JToken) then
-            JFilters := CompileFilters(JToken.AsArray(), TableID);
+    local procedure CompileDeleteQuery(JQueryNode: JsonObject): JsonObject
+    var
+        Top: Integer;
+        JParseTable: JsonObject;
+        JParseFilters: JsonArray;
+        JTable: JsonObject;
+        JFilters: JsonArray;
+        TableID: Integer;
+    begin
+        InlineQueryJsonHelper.ReadDeleteQuery(JQueryNode, Top, JParseTable, JParseFilters);
 
-        if JASTNode.Get('OrderBy', JToken) then
-            JOrderByFields := CompileOrderByFields(JToken.AsArray(), TableID);
+        JTable := CompileTable(JParseTable, TableID);
+        JFilters := CompileFilters(JParseFilters, TableID);
 
-        NewJASTNode.Add('Top', Top);
-        NewJASTNode.Add('Fields', JFields);
-        NewJASTNode.Add('Table', JTable);
-        NewJASTNode.Add('Filters', JFilters);
-        NewJASTNode.Add('OrderBy', JOrderByFields);
-
-        exit(NewJASTNode);
+        exit(InlineQueryJsonHelper.AsDeleteQuery(Top, JTable, JFilters));
     end;
 
     local procedure CompileFilters(JFilters: JsonArray; TableID: Integer): JsonArray
@@ -57,21 +80,14 @@ codeunit 50103 "Inline Query Compiler"
     var
         RecordRef: RecordRef;
         FieldRef: FieldRef;
-        OperatorType: Enum "Inline Query Operator Type";
-        FieldID: Integer;
         FieldName: Text;
         Operator: Text;
         FilterValue: Text;
-        JToken: JsonToken;
-        NewJFilter: JsonObject;
+        FieldID: Integer;
+        OperatorType: Enum "Inline Query Operator Type";
     begin
-        if JFilter.Get('Field', JToken) then
-            FieldName := JToken.AsValue().AsText();
-
+        InlineQueryJsonHelper.ReadFilter(JFilter, FieldName, Operator, FilterValue);
         FieldID := GetFieldID(FieldName, TableID);
-
-        if JFilter.Get('Operator', JToken) then
-            Operator := JToken.AsValue().AsText();
 
         case UpperCase(Operator) of
             '=':
@@ -89,11 +105,8 @@ codeunit 50103 "Inline Query Compiler"
             'LIKE':
                 OperatorType := OperatorType::Like;
             else
-                Error(InvalidOperatorErr, Operator);
+                Error(IncorrectSyntaxErr, Operator);
         end;
-
-        if JFilter.Get('Filter', JToken) then
-            FilterValue := JToken.AsValue().AsText();
 
         if OperatorType <> OperatorType::Like then begin
             RecordRef.Open(TableID);
@@ -103,10 +116,7 @@ codeunit 50103 "Inline Query Compiler"
             RecordRef.Close();
         end;
 
-        NewJFilter.Add('Field', FieldID);
-        NewJFilter.Add('Operator', OperatorType.AsInteger());
-        NewJFilter.Add('Filter', FilterValue);
-        exit(NewJFilter);
+        exit(InlineQueryJsonHelper.AsFilter(FieldID, OperatorType, FilterValue));
     end;
 
     local procedure CompileFields(JFields: JsonArray; TableID: Integer): JsonArray
@@ -125,29 +135,21 @@ codeunit 50103 "Inline Query Compiler"
 
     local procedure CompileField(JField: JsonObject; TableID: Integer): JsonObject
     var
-        JToken: JsonToken;
+        AllFields: Boolean;
         IsFunction: Boolean;
         FunctionName: Text;
         FieldID: Integer;
         FieldName: Text;
+        AliasName: Text;
         FunctionType: Enum "Inline Query Function Type";
-        NewJFieldNode: JsonObject;
     begin
-        JField.Get('Field', JToken);
-        FieldName := JToken.AsValue().AsText();
+        AllFields := InlineQueryJsonHelper.ReadSelectAllFields(JField);
+        if AllFields then
+            exit(InlineQueryJsonHelper.AsSelectAllFields());
 
-        if JField.Get('IsFunction', JToken) then
-            IsFunction := JToken.AsValue().AsBoolean();
+        InlineQueryJsonHelper.ReadSelectField(JField, FieldName, IsFunction, FunctionName, AliasName);
 
-        if (not IsFunction) and (FieldName = '*') then begin
-            NewJFieldNode.Add('Field', '*');
-            exit(NewJFieldNode);
-        end;
-
-        if IsFunction then begin
-            if JField.Get('Function', JToken) then
-                FunctionName := JToken.AsValue().AsText();
-
+        if IsFunction then
             case UpperCase(FunctionName) of
                 'COUNT':
                     FunctionType := FunctionType::Count;
@@ -164,23 +166,13 @@ codeunit 50103 "Inline Query Compiler"
                 'LAST':
                     FunctionType := FunctionType::Last;
                 else
-                    Error(InvalidFunctionErr, FunctionName);
+                    Error(IncorrectSyntaxErr, FunctionName);
             end;
-        end;
 
         if FunctionType <> FunctionType::Count then
             FieldID := GetFieldID(FieldName, TableID);
 
-        NewJFieldNode.Add('IsFunction', IsFunction);
-        if IsFunction then
-            NewJFieldNode.Add('Function', FunctionType.AsInteger());
-
-        NewJFieldNode.Add('Field', FieldID);
-
-        JField.Get('Name', JToken);
-        NewJFieldNode.Add('Name', JToken.AsValue().AsText());
-
-        exit(NewJFieldNode);
+        exit(InlineQueryJsonHelper.AsSelectField(FieldID, IsFunction, FunctionType, AliasName));
     end;
 
     local procedure CompileOrderByFields(JFields: JsonArray; TableID: Integer): JsonArray
@@ -202,35 +194,26 @@ codeunit 50103 "Inline Query Compiler"
         AllObj: Record AllObj;
         Company: Record Company;
         TableName: Text;
-        CompanyNameValue: Text;
-        JToken: JsonToken;
-        NewTable: JsonObject;
+        CompanyName: Text;
     begin
-        if JTable.Get('Table', JToken) then
-            TableName := JToken.AsValue().AsText();
+        InlineQueryJsonHelper.ReadSourceTable(JTable, TableName, CompanyName);
 
         AllObj.SetRange("Object Type", AllObj."Object Type"::Table);
         AllObj.SetFilter("Object Name", '%1', '@' + TableName);
         if not AllObj.FindFirst() then
-            Error(ObjectNotFoundErr, TableName, 'table');
+            Error(InvalidTableNameErr, TableName);
 
         TableID := AllObj."Object ID";
 
-        if JTable.Get('Company', JToken) then begin
-            CompanyNameValue := JToken.AsValue().AsText();
+        if CompanyName <> '' then begin
+            Company.SetFilter(Name, '%1', '@' + CompanyName);
+            if not Company.FindFirst() then
+                Error(InvalidCompanyNameErr, CompanyName);
 
-            if CompanyNameValue <> '' then begin
-                Company.SetFilter(Name, '%1', '@' + CompanyNameValue);
-                if not Company.FindFirst() then
-                    Error(ObjectNotFoundErr, CompanyNameValue, 'company');
-
-                CompanyNameValue := Company.Name;
-            end;
+            CompanyName := Company.Name;
         end;
 
-        NewTable.Add('Table', TableID);
-        NewTable.Add('Company', CompanyNameValue);
-        exit(NewTable);
+        exit(InlineQueryJsonHelper.AsSourceTable(TableID, CompanyName));
     end;
 
     local procedure GetFieldID(FieldName: Text; TableID: Integer): Integer
@@ -240,7 +223,7 @@ codeunit 50103 "Inline Query Compiler"
         Field.SetRange(TableNo, TableID);
         Field.SetFilter(FieldName, '%1', '@' + FieldName);
         if not Field.FindFirst() then
-            Error(ObjectNotFoundErr, FieldName, 'field');
+            Error(InvalidFieldNameErr, FieldName);
 
         exit(Field."No.");
     end;

@@ -12,9 +12,9 @@ controladdin QueryAnalyzerControlAddIn
     Scripts = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.3.2/highlight.min.js',
         'https://unpkg.com/ag-grid-community/dist/ag-grid-community.min.js';
 
-    StartupScript = 'js\QueryAnalyzer.js';
+    StartupScript = 'src\InlineQueryAnalyzerControlAddin\js\QueryAnalyzer.js';
     StyleSheets = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.3.2/styles/tomorrow.min.css',
-        'css\QueryAnalyzer.css';
+        'src\InlineQueryAnalyzerControlAddin\css\QueryAnalyzer.css';
 
     event ControlAddInReady();
     event ExecuteQuery(QueryText: Text);

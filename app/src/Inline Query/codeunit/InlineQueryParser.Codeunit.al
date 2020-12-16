@@ -3,40 +3,86 @@ codeunit 50102 "Inline Query Parser"
     Access = Internal;
 
     var
-        SyntaxErrorErr: Label 'Syntax error, %1 expected.', Comment = '%1 = Token';
-        InvalidTokenErrorErr: Label 'Syntax error, Invalid token ''%1''.', Comment = '%1 = Token';
-        InvalidOperatorErr: Label 'Syntax error, Invalid operator ''%1''.', Comment = '%1 = Operator';
+        InlineQueryTokenizer: Codeunit "Inline Query Tokenizer";
+        InlineQueryJsonHelper: Codeunit "Inline Query Json Helper";
+        InvalidQueryErr: Label 'Invalid query ''%1''', Comment = '%1 = Query Text';
+        InvalidSyntaxNearErr: Label 'Incorrect syntax near ''%1''.', Comment = '%1 = Token Value';
+        NotImplementedErr: Label 'Query type ''%1'' not implemented.', Comment = '%1 = Query Type';
+        SelectKeywordTxt: Label 'SELECT', Locked = true;
+        DeleteKeywordTxt: Label 'DELETE', Locked = true;
+        TopKeywordTxt: Label 'TOP', Locked = true;
+        WhereKeywordTxt: Label 'WHERE', Locked = true;
+        AndKeywordTxt: Label 'AND', Locked = true;
+        LikeKeywordTxt: Label 'LIKE', Locked = true;
+        OrderKeywordTxt: Label 'ORDER', Locked = true;
+        ByKeywordTxt: Label 'BY', Locked = true;
+        FromKeywordTxt: Label 'FROM', Locked = true;
+        AsKeywordTxt: Label 'AS', Locked = true;
 
-    procedure Parse(JTokens: JsonArray): JsonObject
+    procedure Parse(QueryText: Text; JTokens: JsonArray): JsonObject
     var
         Pos: Integer;
-        Top: Integer;
-        JTable: JsonObject;
-        JFields: JsonArray;
-        JFilters: JsonArray;
-        JOrderByFields: JsonArray;
-        JASTNode: JsonObject;
+        QueryType: Enum "Inline Query Type";
     begin
         if JTokens.Count() = 0 then
             exit;
 
         Pos := 0;
 
-        ParseQueryType(JTokens, Pos);
+        QueryType := GetQueryType(QueryText, JTokens, Pos);
+
+        case QueryType of
+            QueryType::Select:
+                exit(ParseSelectQuery(JTokens, Pos));
+            QueryType::Delete:
+                exit(ParseDeleteQuery(JTokens, Pos));
+            else
+                Error(NotImplementedErr, QueryType);
+        end;
+    end;
+
+    local procedure ParseSelectQuery(JTokens: JsonArray; var Pos: Integer): JsonObject
+    var
+        Top: Integer;
+        JTable: JsonObject;
+        JFields: JsonArray;
+        JFilters: JsonArray;
+        JOrderByFields: JsonArray;
+    begin
         Top := ParseTopClause(JTokens, Pos);
         JFields := ParseFields(JTokens, Pos);
         JTable := ParseTable(JTokens, Pos);
         JFilters := ParseFilters(JTokens, Pos);
         JOrderByFields := ParseOrderBy(JTokens, Pos);
-
         EndOfQuery(JTokens, Pos);
-        JASTNode.Add('Top', Top);
-        JASTNode.Add('Fields', JFields);
-        JASTNode.Add('Table', JTable);
-        JASTNode.Add('Filters', JFilters);
-        JASTNode.Add('OrderBy', JOrderByFields);
 
-        exit(JASTNode);
+        exit(InlineQueryJsonHelper.AsSelectQuery(Top, JFields, JTable, JFilters, JOrderByFields));
+    end;
+
+    local procedure ParseDeleteQuery(JTokens: JsonArray; var Pos: Integer): JsonObject
+    var
+        Top: Integer;
+        JTable: JsonObject;
+        JFilters: JsonArray;
+    begin
+        Top := ParseTopClause(JTokens, Pos);
+        ReadFromKeyword(JTokens, Pos);
+        JTable := ParseTable(JTokens, Pos);
+        JFilters := ParseFilters(JTokens, Pos);
+        EndOfQuery(JTokens, Pos);
+
+        exit(InlineQueryJsonHelper.AsDeleteQuery(Top, JTable, JFilters));
+    end;
+
+    local procedure ReadFromKeyword(JTokens: JsonArray; var Pos: Integer)
+    var
+        TokenValue: Text;
+        TokenType: Enum "Inline Query Token Type";
+    begin
+        InlineQueryTokenizer.ReadToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidSyntaxNearErr, TokenValue));
+
+        if (UpperCase(TokenValue) <> FromKeywordTxt) then
+            Error(InvalidSyntaxNearErr, TokenValue);
     end;
 
     local procedure ParseTopClause(JTokens: JsonArray; var Pos: Integer): Integer
@@ -45,19 +91,17 @@ codeunit 50102 "Inline Query Parser"
         TokenType: Enum "Inline Query Token Type";
         Top: Integer;
     begin
-        if not PeekToken(JTokens, Pos, TokenValue, TokenType) then
+        if not InlineQueryTokenizer.PeekToken(JTokens, Pos, TokenValue, TokenType) then
             exit;
 
-        if UpperCase(TokenValue) <> 'TOP' then
+        if UpperCase(TokenValue) <> TopKeywordTxt then
             exit;
 
         Pos += 1;
-
-        if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
-            Error(SyntaxErrorErr, 'TOP');
+        InlineQueryTokenizer.ReadToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidSyntaxNearErr, TokenValue));
 
         if not Evaluate(Top, TokenValue) then
-            Error(SyntaxErrorErr, 'TOP');
+            Error(InvalidSyntaxNearErr, TokenValue);
 
         exit(Top);
     end;
@@ -70,20 +114,24 @@ codeunit 50102 "Inline Query Parser"
         if Pos = JTokens.Count() then
             exit;
 
-        PeekToken(JTokens, Pos, TokenValue, TokenType);
-        Error(InvalidTokenErrorErr, TokenValue);
+        InlineQueryTokenizer.PeekToken(JTokens, Pos, TokenValue, TokenType);
+        Error(InvalidSyntaxNearErr, TokenValue);
     end;
 
-    local procedure ParseQueryType(JTokens: JsonArray; var Pos: Integer)
+    local procedure GetQueryType(QueryText: Text; JTokens: JsonArray; var Pos: Integer): Enum "Inline Query type"
     var
         TokenValue: Text;
         TokenType: Enum "Inline Query Token Type";
     begin
-        if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
-            Error(SyntaxErrorErr, 'SELECT');
-
-        if (UpperCase(TokenValue) <> 'SELECT') then
-            Error(SyntaxErrorErr, 'SELECT');
+        InlineQueryTokenizer.ReadToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidQueryErr, QueryText));
+        case UpperCase(TokenValue) of
+            SelectKeywordTxt:
+                exit("Inline Query Type"::Select);
+            DeleteKeywordTxt:
+                exit("Inline Query Type"::Delete);
+            else
+                Error(InvalidQueryErr, QueryText);
+        end;
     end;
 
     local procedure ParseFilters(JTokens: JsonArray; var Pos: Integer): JsonArray
@@ -95,23 +143,19 @@ codeunit 50102 "Inline Query Parser"
         FilterValue: Text;
         JFilters: JsonArray;
     begin
-        if not PeekToken(JTokens, Pos, TokenValue, TokenType) then
+        if not InlineQueryTokenizer.PeekToken(JTokens, Pos, TokenValue, TokenType) then
             exit;
 
-        if UpperCase(TokenValue) <> 'WHERE' then
+        if UpperCase(TokenValue) <> WhereKeywordTxt then
             exit;
 
         Pos += 1;
 
-        while (UpperCase(TokenValue) = 'WHERE') or (UpperCase(TokenValue) = 'AND') do begin
-            if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
-                Error(SyntaxErrorErr, 'Field');
-
+        while (UpperCase(TokenValue) = WhereKeywordTxt) or (UpperCase(TokenValue) = AndKeywordTxt) do begin
+            InlineQueryTokenizer.ReadToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidSyntaxNearErr, TokenValue));
             FieldName := TokenValue;
 
-            if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
-                Error(SyntaxErrorErr, 'Operator');
-
+            InlineQueryTokenizer.ReadToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidSyntaxNearErr, TokenValue));
             case TokenType of
                 TokenType::"Equal To",
                 TokenType::"Not Equal To",
@@ -122,21 +166,18 @@ codeunit 50102 "Inline Query Parser"
                     Operator := TokenValue;
                 else
                     Operator := TokenValue;
-                    if UpperCase(TokenValue) <> 'LIKE' then
-                        Error(InvalidOperatorErr, Operator);
+                    if UpperCase(TokenValue) <> LikeKeywordTxt then
+                        Error(InvalidSyntaxNearErr, TokenValue);
             end;
 
-            if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
-                Error(SyntaxErrorErr, 'Filter Value');
-
+            InlineQueryTokenizer.ReadToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidSyntaxNearErr, TokenValue));
             FilterValue := TokenValue;
+            JFilters.Add(InlineQueryJsonHelper.AsFilter(FieldName, Operator, FilterValue));
 
-            JFilters.Add(GetFilterNode(FieldName, Operator, FilterValue));
-
-            if not PeekToken(JTokens, Pos, TokenValue, TokenType) then
+            if not InlineQueryTokenizer.PeekToken(JTokens, Pos, TokenValue, TokenType) then
                 Break;
 
-            if UpperCase(TokenValue) = 'AND' then
+            if UpperCase(TokenValue) = AndKeywordTxt then
                 Pos += 1;
         end;
 
@@ -150,32 +191,28 @@ codeunit 50102 "Inline Query Parser"
         FieldName: Text;
         JFields: JsonArray;
     begin
-        if not PeekToken(JTokens, Pos, TokenValue, TokenType) then
+        if not InlineQueryTokenizer.PeekToken(JTokens, Pos, TokenValue, TokenType) then
             exit;
 
-        if UpperCase(TokenValue) <> 'ORDER' then
+        if UpperCase(TokenValue) <> OrderKeywordTxt then
             exit;
 
         Pos += 1;
 
-        if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
-            Error(SyntaxErrorErr, 'ORDER');
+        InlineQueryTokenizer.ReadToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidSyntaxNearErr, TokenValue));
+        if UpperCase(TokenValue) <> ByKeywordTxt then
+            Error(InvalidSyntaxNearErr, TokenValue);
 
-        if UpperCase(TokenValue) <> 'BY' then
-            Error(SyntaxErrorErr, 'BY');
-
-
-        while (UpperCase(TokenValue) = 'BY') or (TokenValue = ',') do begin
-            if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
-                Error(SyntaxErrorErr, 'Field');
+        while (UpperCase(TokenValue) = ByKeywordTxt) or (TokenValue = ',') do begin
+            InlineQueryTokenizer.ReadToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidSyntaxNearErr, TokenValue));
 
             FieldName := TokenValue;
             JFields.Add(FieldName);
 
-            if not PeekToken(JTokens, Pos, TokenValue, TokenType) then
+            if not InlineQueryTokenizer.PeekToken(JTokens, Pos, TokenValue, TokenType) then
                 Break;
 
-            if TokenValue = ',' then
+            if TokenType = TokenType::Comma then
                 Pos += 1;
         end;
 
@@ -185,26 +222,23 @@ codeunit 50102 "Inline Query Parser"
     local procedure ParseTable(JTokens: JsonArray; var Pos: Integer): JsonObject
     var
         TokenValue: Text;
-        TokenType: Enum "Inline Query Token Type";
-        CompanyNameValue: Text;
         TableName: Text;
+        CompanyNameValue: Text;
+        TokenType: Enum "Inline Query Token Type";
     begin
-        if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
-            Error(SyntaxErrorErr, 'Table');
-
+        InlineQueryTokenizer.ReadToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidSyntaxNearErr, TokenValue));
         TableName := TokenValue;
 
-        if PeekToken(JTokens, Pos, TokenValue, TokenType) then
+        if InlineQueryTokenizer.PeekToken(JTokens, Pos, TokenValue, TokenType) then
             if TokenType = TokenType::Period then begin
                 Pos += 1;
-                if ReadToken(JTokens, Pos, TokenValue, TokenType) then begin
-                    CompanyNameValue := TableName;
-                    TableName := TokenValue;
-                end;
+                InlineQueryTokenizer.ReadToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidSyntaxNearErr, TokenValue));
+                CompanyNameValue := TableName;
+                TableName := TokenValue;
             end;
 
 
-        exit(GetTableNode(TableName, CompanyNameValue));
+        exit(InlineQueryJsonHelper.AsSourceTable(TableName, CompanyNameValue));
     end;
 
     local procedure ParseFields(JTokens: JsonArray; var Pos: Integer): JsonArray
@@ -213,154 +247,61 @@ codeunit 50102 "Inline Query Parser"
         TokenType: Enum "Inline Query Token Type";
         JFields: JsonArray;
     begin
-        while (TokenValue = '') or (TokenValue = ',') do begin
+        while (TokenValue = '') or (TokenType = TokenType::Comma) do begin
             JFields.Add(ParseField(JTokens, Pos));
 
-            if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
-                Error(SyntaxErrorErr, 'FROM');
-
-            if UpperCase(TokenValue) = 'FROM' then
+            InlineQueryTokenizer.ReadToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidSyntaxNearErr, TokenValue));
+            if UpperCase(TokenValue) = FromKeywordTxt then
                 Break;
 
-            if UpperCase(TokenValue) <> ',' then
-                Error(SyntaxErrorErr, 'FROM');
+            if TokenType <> TokenType::Comma then
+                Error(InvalidSyntaxNearErr, TokenValue);
         end;
 
-        if UpperCase(TokenValue) <> 'FROM' then
-            Error(SyntaxErrorErr, 'FROM');
+        if UpperCase(TokenValue) <> FromKeywordTxt then
+            Error(InvalidSyntaxNearErr, TokenValue);
 
         exit(JFields);
     end;
 
     local procedure ParseField(JTokens: JsonArray; var Pos: Integer): JsonObject
     var
-        TokenValue: Text;
-        TokenType: Enum "Inline Query Token Type";
         FieldName: Text;
         Name: Text;
         FunctionName: Text;
         IsFunction: Boolean;
+        TokenValue: Text;
+        TokenType: Enum "Inline Query Token Type";
     begin
-        if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
-            Error(SyntaxErrorErr, 'Field');
+        InlineQueryTokenizer.ReadToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidSyntaxNearErr, TokenValue));
+        if TokenType = TokenType::Star then
+            exit(InlineQueryJsonHelper.AsSelectAllFields());
 
         FieldName := TokenValue;
-
-        if not PeekToken(JTokens, Pos, TokenValue, TokenType) then
-            Error(SyntaxErrorErr, 'Field');
-
+        InlineQueryTokenizer.PeekToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidSyntaxNearErr, TokenValue));
         if TokenType = TokenType::"Opening Parenthesis" then begin
             Pos += 1;
             FunctionName := FieldName;
             IsFunction := true;
 
-            if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
-                Error(SyntaxErrorErr, 'Field');
-
+            InlineQueryTokenizer.ReadToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidSyntaxNearErr, TokenValue));
             FieldName := TokenValue;
-            if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
-                Error(SyntaxErrorErr, ')');
 
+            InlineQueryTokenizer.ReadToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidSyntaxNearErr, TokenValue));
             if TokenType <> TokenType::"Closing Parenthesis" then
-                Error(SyntaxErrorErr, ')');
+                Error(InvalidSyntaxNearErr, TokenValue);
 
-            if not PeekToken(JTokens, Pos, TokenValue, TokenType) then
-                Error(SyntaxErrorErr, 'Field');
+            InlineQueryTokenizer.PeekToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidSyntaxNearErr, TokenValue));
         end;
 
-        if UpperCase(TokenValue) = 'AS' then begin
+        if UpperCase(TokenValue) = AsKeywordTxt then begin
             Pos += 1;
-            if not ReadToken(JTokens, Pos, TokenValue, TokenType) then
-                Error(SyntaxErrorErr, 'Field');
-
+            InlineQueryTokenizer.ReadToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidSyntaxNearErr, TokenValue));
             Name := TokenValue;
 
-            if not PeekToken(JTokens, Pos, TokenValue, TokenType) then
-                Error(SyntaxErrorErr, 'Field');
+            InlineQueryTokenizer.PeekToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidSyntaxNearErr, TokenValue));
         end;
 
-        exit(GetFieldNode(FieldName, IsFunction, FunctionName, Name));
-    end;
-
-    local procedure ReadToken(
-        JTokens: JsonArray;
-        var Pos: Integer;
-        var TokenValue: Text;
-        var TokenType: Enum "Inline Query Token Type"): Boolean
-    var
-        JToken: JsonToken;
-    begin
-        if Pos >= JTokens.Count() then
-            exit(false);
-
-        JTokens.Get(Pos, JToken);
-        ReadTokenData(JToken.AsObject(), TokenValue, TokenType);
-        Pos += 1;
-
-        exit(true);
-    end;
-
-    local procedure PeekToken(
-        JTokens: JsonArray;
-        Pos: Integer;
-        var TokenValue: Text;
-        var TokenType: Enum "Inline Query Token Type"): Boolean
-    var
-        JToken: JsonToken;
-    begin
-        if Pos >= JTokens.Count() then
-            exit(false);
-
-        JTokens.Get(Pos, JToken);
-        ReadTokenData(JToken.AsObject(), TokenValue, TokenType);
-
-        exit(true);
-    end;
-
-    local procedure ReadTokenData(
-        JObject: JsonObject;
-        var TokenValue: Text;
-        var TokenType: Enum "Inline Query Token Type")
-    var
-        JToken: JsonToken;
-    begin
-        if JObject.Get('Value', JToken) then
-            TokenValue := JToken.AsValue().AsText();
-
-        if JObject.Get('Type', JToken) then
-            TokenType := "Inline Query Token Type".FromInteger(JToken.AsValue().AsInteger());
-    end;
-
-    local procedure GetFieldNode(FieldName: Text; IsFunction: Boolean; FunctionName: Text; Name: Text): JsonObject
-    var
-        JObject: JsonObject;
-    begin
-        JObject.Add('Field', FieldName);
-        JObject.Add('IsFunction', IsFunction);
-        if IsFunction then
-            JObject.Add('Function', FunctionName);
-        JObject.Add('Name', Name);
-        exit(JObject);
-    end;
-
-    local procedure GetFilterNode(FieldName: Text; Operator: Text; FilterValue: Text): JsonObject
-    var
-        JObject: JsonObject;
-    begin
-        JObject.Add('Field', FieldName);
-        JObject.Add('Operator', Operator);
-        JObject.Add('Filter', FilterValue);
-
-        exit(JObject);
-    end;
-
-    local procedure GetTableNode(TableName: Text; Company: Text): JsonObject
-    var
-        JObject: JsonObject;
-    begin
-        JObject.Add('Table', TableName);
-        JObject.Add('Company', Company);
-
-        exit(JObject);
+        exit(InlineQueryJsonHelper.AsSelectField(FieldName, IsFunction, FunctionName, Name));
     end;
 }
