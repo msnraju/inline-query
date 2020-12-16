@@ -16,21 +16,25 @@ page 50100 "Inline Query Analyzer"
 
                 trigger ExecuteQuery(QueryText: Text)
                 begin
-                    if not ExecuteQuery(QueryText) then
-                        CurrPage.QueryAnalyzerControlAddIn.UpdateError(QueryText, GetLastErrorText);
+                    ExecuteQuery(QueryText);
                 end;
             }
         }
     }
 
-    [TryFunction]
     local procedure ExecuteQuery(QueryText: Text)
     var
-        InlineQuery: Codeunit "Inline Query";
-        JRows: JsonArray;
+        TryInlineQuery: Codeunit "Try Inline Query";
+        JResult: JsonArray;
         JFieldHeaders: JsonArray;
     begin
-        JRows := InlineQuery.AsJsonArray(QueryText, JFieldHeaders, true);
-        CurrPage.QueryAnalyzerControlAddIn.UpdateResults(QueryText, JFieldHeaders, JRows);
+        TryInlineQuery.SetQuery(QueryText);
+        if not TryInlineQuery.Run() then begin
+            CurrPage.QueryAnalyzerControlAddIn.UpdateError(QueryText, GetLastErrorText);
+            exit;
+        end;
+
+        JResult := TryInlineQuery.GetResult();
+        CurrPage.QueryAnalyzerControlAddIn.UpdateResults(QueryText, JFieldHeaders, JResult);
     end;
 }

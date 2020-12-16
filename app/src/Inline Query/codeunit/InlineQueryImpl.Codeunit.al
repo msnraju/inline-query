@@ -7,6 +7,7 @@ codeunit 50101 "Inline Query Impl"
         InlineQueryTokenizer: Codeunit "Inline Query Tokenizer";
         InlineQueryParser: Codeunit "Inline Query Parser";
         InlineQueryCompiler: Codeunit "Inline Query Compiler";
+        NotImplementedErr: Label 'Query Type ''%1'' not implemented.', Comment = '%1 = Query Type';
         EmptyQueryErr: Label 'Query should not be empty.';
         FunctionExpectedErr: Label 'Function expected.';
         SingleFunctionExpectedErr: Label 'A single function expected.';
@@ -114,15 +115,84 @@ codeunit 50101 "Inline Query Impl"
 
     procedure AsJsonArray(QueryText: Text; JFieldHeaders: JsonArray; UseNames: Boolean): JsonArray
     var
-        RecordRef: RecordRef;
         JQueryNode: JsonObject;
+        QueryType: Enum "Inline Query Type";
+    begin
+        JQueryNode := Compile(QueryText);
+        QueryType := InlineQueryJsonHelper.GetQueryType(JQueryNode);
+
+        case QueryType of
+            QueryType::Select:
+                exit(SelectQueryAsJsonArray(JQueryNode, JFieldHeaders, UseNames));
+            QueryType::Delete:
+                Execute(JQueryNode);
+            else
+                Error(NotImplementedErr, QueryType);
+        end;
+    end;
+
+    procedure Execute(QueryText: Text): Integer
+    var
+        JQueryNode: JsonObject;
+    begin
+        JQueryNode := Compile(QueryText);
+        exit(Execute(JQueryNode));
+    end;
+
+    local procedure Execute(JQueryNode: JsonObject): Integer
+    var
+        QueryType: Enum "Inline Query Type";
+    begin
+        QueryType := InlineQueryJsonHelper.GetQueryType(JQueryNode);
+
+        case QueryType of
+            QueryType::Delete:
+                exit(ExecuteDelete(JQueryNode));
+            else
+                Error(NotImplementedErr, QueryType);
+        end;
+    end;
+
+    local procedure ExecuteDelete(JQueryNode: JsonObject): Integer
+    var
+        RecordRef: RecordRef;
+        Top: Integer;
+        JTable: JsonObject;
+        JFilters: JsonArray;
+        Counter: Integer;
+    begin
+        InlineQueryJsonHelper.ReadDeleteQuery(JQueryNode, Top, JTable, JFilters);
+        OpenTable(RecordRef, JTable);
+        ApplyFilters(RecordRef, JFilters);
+
+        if Top = 0 then begin
+            Counter := RecordRef.Count();
+            RecordRef.DeleteAll(true);
+
+            exit(Counter);
+        end;
+
+        if RecordRef.FindSet() then
+            repeat
+                RecordRef.Delete(true);
+
+                Counter += 1;
+                if Counter = Top then
+                    break;
+            until RecordRef.Next() = 0;
+
+        exit(Counter);
+    end;
+
+    local procedure SelectQueryAsJsonArray(JQueryNode: JsonObject; JFieldHeaders: JsonArray; UseNames: Boolean): JsonArray
+    var
+        RecordRef: RecordRef;
         JFields: JsonArray;
         JTable: JsonObject;
         JFilters: JsonArray;
         JOrderByFields: JsonArray;
         Top: Integer;
     begin
-        JQueryNode := Compile(QueryText);
         InlineQueryJsonHelper.ReadSelectQuery(JQueryNode, Top, JFields, JTable, JFilters, JOrderByFields);
 
         if HasColumnFunctions(JFields) then

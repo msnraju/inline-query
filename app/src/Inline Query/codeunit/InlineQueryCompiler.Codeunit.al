@@ -18,6 +18,8 @@ codeunit 50103 "Inline Query Compiler"
         case QueryType of
             QueryType::Select:
                 exit(CompileSelectQuery(JQueryNode));
+            QueryType::Delete:
+                exit(CompileDeleteQuery(JQueryNode));
             else
                 Error(NotImplementedErr, QueryType);
         end;
@@ -44,6 +46,23 @@ codeunit 50103 "Inline Query Compiler"
         JOrderByFields := CompileOrderByFields(JParseOrderByFields, TableID);
 
         exit(InlineQueryJsonHelper.AsSelectQuery(Top, JFields, JTable, JFilters, JOrderByFields));
+    end;
+
+    local procedure CompileDeleteQuery(JQueryNode: JsonObject): JsonObject
+    var
+        Top: Integer;
+        JParseTable: JsonObject;
+        JParseFilters: JsonArray;
+        JTable: JsonObject;
+        JFilters: JsonArray;
+        TableID: Integer;
+    begin
+        InlineQueryJsonHelper.ReadDeleteQuery(JQueryNode, Top, JParseTable, JParseFilters);
+
+        JTable := CompileTable(JParseTable, TableID);
+        JFilters := CompileFilters(JParseFilters, TableID);
+
+        exit(InlineQueryJsonHelper.AsDeleteQuery(Top, JTable, JFilters));
     end;
 
     local procedure CompileFilters(JFilters: JsonArray; TableID: Integer): JsonArray

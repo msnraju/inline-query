@@ -406,4 +406,67 @@ codeunit 50130 "Inline Query Tests"
         JRecord.Get('Text_Value', JToken);
         LibraryAssert.AreEqual(InlineQueryTestData."Text Value", JToken.AsValue().AsText(), StrSubstNo(ValueMisMatchErr, InlineQueryTestData."Text Value"));
     end;
+
+    [Test]
+    procedure DeleteFirstRecordTest()
+    var
+        InlineQueryTestData: Record "Inline Query Test Data";
+        Found: Boolean;
+        QueryTxt: Label 'DELETE TOP 1 FROM [Inline Query Test Data]', Locked = true;
+        MessageMsg: Label 'First Record should have been deleted';
+    begin
+        // [SCENARIO] The first record from 'Inline Query Test Data' should be deleted.
+        // [GIVEN] Inline Query to delete the first record
+        InlineQueryTestLibrary.SetupTestData();
+        InlineQueryTestData.FindFirst();
+
+        // [WHEN] Executing AsJsonArray method
+        InlineQuery.AsJsonArray(QueryTxt);
+
+        // [THEN] Inline Query should return the expected quantity
+        Found := InlineQueryTestData.Get(InlineQueryTestData."Entry No.");
+        LibraryAssert.IsFalse(Found, MessageMsg);
+    end;
+
+    [Test]
+    procedure DeleteRecordWithFiltersTest()
+    var
+        InlineQueryTestData: Record "Inline Query Test Data";
+        Found: Boolean;
+        QueryTxt: Label 'DELETE FROM [Inline Query Test Data] WHERE [Entry No.] = %1', Locked = true;
+        MessageMsg: Label 'First Record should have been deleted';
+    begin
+        // [SCENARIO] The first record from 'Inline Query Test Data' should be deleted.
+        // [GIVEN] Inline Query to delete the first record
+        InlineQueryTestLibrary.SetupTestData();
+        InlineQueryTestData.FindFirst();
+
+        // [WHEN] Executing AsJsonArray method
+        InlineQuery.AsJsonArray(StrSubstNo(QueryTxt, InlineQueryTestData."Entry No."));
+
+        // [THEN] Inline Query should return the expected quantity
+        Found := InlineQueryTestData.Get(InlineQueryTestData."Entry No.");
+        LibraryAssert.IsFalse(Found, MessageMsg);
+    end;
+
+    [Test]
+    procedure DeleteAllRecordsTest()
+    var
+        InlineQueryTestData: Record "Inline Query Test Data";
+        Found: Boolean;
+        QueryTxt: Label 'DELETE FROM [Inline Query Test Data]', Locked = true;
+        MessageMsg: Label 'All Records should have been deleted';
+    begin
+        // [SCENARIO] All records from 'Inline Query Test Data' should be deleted.
+        // [GIVEN] Inline Query to delete all records
+        InlineQueryTestLibrary.SetupTestData();
+        InlineQueryTestData.FindFirst();
+
+        // [WHEN] Executing AsJsonArray method
+        InlineQuery.AsJsonArray(QueryTxt);
+
+        // [THEN] Inline Query should return the expected quantity
+        Found := InlineQueryTestData.IsEmpty();
+        LibraryAssert.IsTrue(Found, MessageMsg);
+    end;
 }

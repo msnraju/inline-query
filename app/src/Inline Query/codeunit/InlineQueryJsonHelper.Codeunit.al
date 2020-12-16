@@ -4,10 +4,10 @@ codeunit 50105 "Inline Query Json Helper"
 
     var
         QueryTypeTxt: Label 'QueryType', Locked = true;
-        Select_Top_Txt: Label 'Top', Locked = true;
+        Query_Top_Txt: Label 'Top', Locked = true;
+        Query_Table_Txt: Label 'Table', Locked = true;
+        Query_Filters_Txt: Label 'Filters', Locked = true;
         Select_Fields_Txt: Label 'Fields', Locked = true;
-        Select_Table_Txt: Label 'Table', Locked = true;
-        Select_Filters_Txt: Label 'Filters', Locked = true;
         Select_OrderBy_Txt: Label 'OrderBy', Locked = true;
         Source_Table_Name_Txt: Label 'Table', Locked = true;
         Source_Table_Company_Txt: Label 'Company', Locked = true;
@@ -40,10 +40,10 @@ codeunit 50105 "Inline Query Json Helper"
         JQueryNode: JsonObject;
     begin
         JQueryNode.Add(QueryTypeTxt, "Inline Query Type"::Select.AsInteger());
-        JQueryNode.Add(Select_Top_Txt, Top);
+        JQueryNode.Add(Query_Top_Txt, Top);
         JQueryNode.Add(Select_Fields_Txt, JFields);
-        JQueryNode.Add(Select_Table_Txt, JTable);
-        JQueryNode.Add(Select_Filters_Txt, JFilters);
+        JQueryNode.Add(Query_Table_Txt, JTable);
+        JQueryNode.Add(Query_Filters_Txt, JFilters);
         JQueryNode.Add(Select_OrderBy_Txt, JOrderByFields);
 
         exit(JQueryNode);
@@ -59,16 +59,16 @@ codeunit 50105 "Inline Query Json Helper"
     var
         JToken: JsonToken;
     begin
-        if JQueryNode.Get(Select_Top_Txt, JToken) then
+        if JQueryNode.Get(Query_Top_Txt, JToken) then
             Top := JToken.AsValue().AsInteger();
 
         if JQueryNode.Get(Select_Fields_Txt, JToken) then
             JFields := JToken.AsArray();
 
-        if JQueryNode.Get(Select_Table_Txt, JToken) then
+        if JQueryNode.Get(Query_Table_Txt, JToken) then
             JTable := JToken.AsObject();
 
-        if JQueryNode.Get(Select_Filters_Txt, JToken) then
+        if JQueryNode.Get(Query_Filters_Txt, JToken) then
             JFilters := JToken.AsArray();
 
         if JQueryNode.Get(Select_OrderBy_Txt, JToken) then
@@ -287,5 +287,38 @@ codeunit 50105 "Inline Query Json Helper"
         JFieldHeader.Add(Select_Header_Caption_Txt, Caption);
         JFieldHeader.Add(Select_Header_Name_Txt, Name);
         exit(JFieldHeader);
+    end;
+
+    procedure AsDeleteQuery(
+        Top: Integer;
+        JTable: JsonObject;
+        JFilters: JsonArray): JsonObject
+    var
+        JQueryNode: JsonObject;
+    begin
+        JQueryNode.Add(QueryTypeTxt, "Inline Query Type"::Delete.AsInteger());
+        JQueryNode.Add(Query_Top_Txt, Top);
+        JQueryNode.Add(Query_Table_Txt, JTable);
+        JQueryNode.Add(Query_Filters_Txt, JFilters);
+
+        exit(JQueryNode);
+    end;
+
+    procedure ReadDeleteQuery(
+        JQueryNode: JsonObject;
+        var Top: Integer;
+        var JTable: JsonObject;
+        var JFilters: JsonArray)
+    var
+        JToken: JsonToken;
+    begin
+        if JQueryNode.Get(Query_Top_Txt, JToken) then
+            Top := JToken.AsValue().AsInteger();
+
+        if JQueryNode.Get(Query_Table_Txt, JToken) then
+            JTable := JToken.AsObject();
+
+        if JQueryNode.Get(Query_Filters_Txt, JToken) then
+            JFilters := JToken.AsArray();
     end;
 }

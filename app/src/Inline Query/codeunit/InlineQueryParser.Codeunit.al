@@ -9,6 +9,7 @@ codeunit 50102 "Inline Query Parser"
         InvalidSyntaxNearErr: Label 'Incorrect syntax near ''%1''.', Comment = '%1 = Token Value';
         NotImplementedErr: Label 'Query type ''%1'' not implemented.', Comment = '%1 = Query Type';
         SelectKeywordTxt: Label 'SELECT', Locked = true;
+        DeleteKeywordTxt: Label 'DELETE', Locked = true;
         TopKeywordTxt: Label 'TOP', Locked = true;
         WhereKeywordTxt: Label 'WHERE', Locked = true;
         AndKeywordTxt: Label 'AND', Locked = true;
@@ -33,6 +34,8 @@ codeunit 50102 "Inline Query Parser"
         case QueryType of
             QueryType::Select:
                 exit(ParseSelectQuery(JTokens, Pos));
+            QueryType::Delete:
+                exit(ParseDeleteQuery(JTokens, Pos));
             else
                 Error(NotImplementedErr, QueryType);
         end;
@@ -54,6 +57,32 @@ codeunit 50102 "Inline Query Parser"
         EndOfQuery(JTokens, Pos);
 
         exit(InlineQueryJsonHelper.AsSelectQuery(Top, JFields, JTable, JFilters, JOrderByFields));
+    end;
+
+    local procedure ParseDeleteQuery(JTokens: JsonArray; var Pos: Integer): JsonObject
+    var
+        Top: Integer;
+        JTable: JsonObject;
+        JFilters: JsonArray;
+    begin
+        Top := ParseTopClause(JTokens, Pos);
+        ReadFromKeyword(JTokens, Pos);
+        JTable := ParseTable(JTokens, Pos);
+        JFilters := ParseFilters(JTokens, Pos);
+        EndOfQuery(JTokens, Pos);
+
+        exit(InlineQueryJsonHelper.AsDeleteQuery(Top, JTable, JFilters));
+    end;
+
+    local procedure ReadFromKeyword(JTokens: JsonArray; var Pos: Integer)
+    var
+        TokenValue: Text;
+        TokenType: Enum "Inline Query Token Type";
+    begin
+        InlineQueryTokenizer.ReadToken(JTokens, Pos, TokenValue, TokenType, StrSubstNo(InvalidSyntaxNearErr, TokenValue));
+
+        if (UpperCase(TokenValue) <> FromKeywordTxt) then
+            Error(InvalidSyntaxNearErr, TokenValue);
     end;
 
     local procedure ParseTopClause(JTokens: JsonArray; var Pos: Integer): Integer
@@ -98,6 +127,8 @@ codeunit 50102 "Inline Query Parser"
         case UpperCase(TokenValue) of
             SelectKeywordTxt:
                 exit("Inline Query Type"::Select);
+            DeleteKeywordTxt:
+                exit("Inline Query Type"::Delete);
             else
                 Error(InvalidQueryErr, QueryText);
         end;
